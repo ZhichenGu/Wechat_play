@@ -1,8 +1,12 @@
 import {readFile,writeFile,readdir,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 const entries={};
-const add=async(route,file,type)=>entries[route]={type,base64:(await readFile(file)).toString('base64')};
+const add=async(route,file,type)=>{
+ const bytes=await readFile(file);
+ entries[route]={type,size:bytes.length,base64:bytes.toString('base64')};
+};
 await add('/','game/index.html','text/html; charset=utf-8');entries['/index.html']=entries['/'];
+await add('/assets/opening.mp4','game/assets/opening.mp4','video/mp4');
 for(const file of await readdir('game/src'))if(/\.(js|css)$/.test(file))await add('/src/'+file,'game/src/'+file,file.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8');
 for(const [route,file] of Object.entries(JSON.parse(await readFile('game/audio-map.json','utf8'))))await add(route,file,'audio/mp4');
 for(const folder of ['contacts','moments','weixun']){
@@ -14,4 +18,4 @@ for(const folder of ['contacts','moments','weixun']){
 await writeFile('worker/assets.generated.js','export default '+JSON.stringify(entries)+';\n');
 await mkdir('dist/server',{recursive:true});
 await build({entryPoints:['worker/server.js'],outfile:'dist/server/index.js',bundle:true,format:'esm',platform:'browser',target:'es2022',minify:true});
-console.log('Built public Worker; only whitelisted game routes and audio are served.');
+console.log('Built public Worker; only whitelisted game routes and media are served.');

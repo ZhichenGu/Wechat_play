@@ -18,6 +18,22 @@ test('the hosted interface serves its avatar, Moments and navigation images',asy
  }
 });
 test('public assets are allowlisted; roles, tools, test reports and key configuration are not served',async()=>{const worker=createWorker(),settings=env(db());for(const route of ['/private/roles/alan.md','/tests/live-setup.html','/verification.md','/.env','/lab.html','/api/config','/api/npc/campaign'])assert.equal((await worker.fetch(new Request('https://play.example'+route),settings)).status,404);assert.equal((await worker.fetch(new Request('https://play.example/'),settings)).status,200);const sound=await worker.fetch(new Request('https://play.example/assets/sfx/room-tone.wav',{headers:{Range:'bytes=0-99'}}),settings);assert.equal(sound.status,206);assert.equal((await sound.arrayBuffer()).byteLength,100);});
+test('the opening video supports full playback, metadata and byte-range requests',async()=>{
+ const worker=createWorker(),url='https://play.example/assets/opening.mp4';
+ const file=await readFile('game/assets/opening.mp4');
+ const head=await worker.fetch(new Request(url,{method:'HEAD'}),{});
+ assert.equal(head.headers.get('Content-Type'),'video/mp4');
+ assert.equal(head.headers.get('Content-Length'),String(file.length));
+ assert.equal((await head.arrayBuffer()).byteLength,0);
+ const full=await worker.fetch(new Request(url),{});
+ assert.deepEqual(Buffer.from(await full.arrayBuffer()),file);
+ for(const [range,start,end] of [['bytes=0-1',0,1],['bytes=13-29',13,29],['bytes=-7',file.length-7,file.length-1]]){
+  const response=await worker.fetch(new Request(url,{headers:{Range:range}}),{});
+  assert.equal(response.status,206);
+  assert.equal(response.headers.get('Content-Range'),`bytes ${start}-${end}/${file.length}`);
+  assert.deepEqual(Buffer.from(await response.arrayBuffer()),file.subarray(start,end+1));
+ }
+});
 test('status never returns the provider secret and invalid origin/cookie cannot spend it',async()=>{let calls=0;const worker=createWorker({generate:async()=>{calls++;return {mode:'ai'}}}),settings=env(db());const s=await session(worker,settings);assert.ok(!JSON.stringify(s.data).includes(settings.NPC_API_KEY));assert.deepEqual(s.data.dailyLimits,{global:300,player:150});assert.equal((await worker.fetch(post(s,{context},'https://evil.example'),settings)).status,403);assert.equal((await worker.fetch(post({...s,cookie:'night_session=forged'}),settings)).status,403);assert.equal(calls,0);});
 test('a player can make 150 requests per Beijing day; the next never calls the provider',async()=>{let time=Date.UTC(2026,10,17,4),calls=0;const worker=createWorker({now:()=>time,generate:async()=>{calls++;return {mode:'ai',output:{lines:['好。'],memoryRefs:[]}}}}),settings=env(db()),s=await session(worker,settings);for(let i=0;i<150;i++){time+=61000;assert.equal((await worker.fetch(post(s),settings)).status,200);}time+=61000;assert.equal((await worker.fetch(post(s),settings)).status,429);assert.equal(calls,150);});
 test('atomic global quota cannot exceed 300 even with simultaneous reservations',async()=>{const DB=db();const results=await Promise.all(Array.from({length:320},()=>take(DB,'global:day',300,1)));assert.equal(results.filter(Boolean).length,300);assert.equal(DB.sqlite.prepare('SELECT count FROM usage_counters WHERE bucket=?').get('global:day').count,300);});

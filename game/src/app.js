@@ -17,6 +17,7 @@ const roomMessages=id=>isBackground(id)?backgroundHistory(state,id):state.messag
 const scrollPositions={},sideHistory=[];
 let viewedContact=null,momentsOwner=null,viewedMoment=null;
 let chatParent='list',desktopSettingsOpen=false;
+let showOpeningHint=false;
 let activeVoice=null;
 const callAudio={muted:false,speaker:false};
 const callObserver={onFinish(reason){if(reason==='error')toast('通话音频未能播放，字幕仍可查看。');}};
@@ -46,6 +47,7 @@ function cancelReply(){controller?.abort();if(state.replyInFlight)commit(settleN
 function saveState(){if(!save(state))toast('浏览器未能保存；请保持此页开启。');}
 function keepDraft(){if(storeDraft(state,room,draft,quote?.id))saveState();}
 function openChat(id){
+ showOpeningHint=false;
  chatParent=view==='chat'?chatParent:view;
  const saved=state.chatUi?.drafts?.[id];
  room=id;view='chat';modal=null;panel=null;
@@ -80,7 +82,31 @@ function readVisibleChat(messages=document.querySelector('#messages')){
 }
 function toast(text){document.querySelector('.toast')?.remove();const el=document.createElement('div');el.className='toast';el.textContent=text;document.body.append(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),2600);}
 function closeModal(){const copied=modal?.kind==='message'&&state.messages.find(m=>m.id===modal.mid)?.value==='copy';if(modal?.kind==='settings'||(activeVoice&&modal?.mid===activeVoice.id))stopAudio();modal=null;if(copied)reviewCopiedVoice();}
-function reset(next){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;state.statusClockStartedAt??=Date.now();modal=null;panel=null;draft='';quote=null;callMin=false;view='list';if(!state.flags.welcomed){state.flags.welcomed=true;modal={kind:'welcome'};}saveState();render();}
+function reset(next){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;modal=null;panel=null;draft='';quote=null;callMin=false;showOpeningHint=false;view='list';saveState();render();}
+function finishOpening(){
+ if(state.flags.welcomed)return;
+ state.flags.welcomed=true;
+ state.statusClockStartedAt??=Date.now();
+ showOpeningHint=true;
+ saveState();
+ render();
+ document.querySelector('.opening-hint')?.focus({preventScroll:true});
+}
+function renderOpening(){
+ if(app.querySelector('.opening-film'))return;
+ soundscape.setPaused(true);
+ app.innerHTML=`<section class="phone phone-opening" aria-label="故事开场">
+  <video class="opening-film" src="/assets/opening.mp4" playsinline muted preload="auto"
+   aria-label="凌晨 1:39，撤展的最后一夜。你在临时休息室等人来会合。房号和门码，别发到群里。"></video>
+  ${button('跳过','skipOpening','aria-label="跳过开场"','opening-skip')}
+ </section>`;
+ const video=app.querySelector('.opening-film');
+ const finish=()=>{if(video.isConnected)finishOpening();};
+ video.addEventListener('ended',finish,{once:true});
+ video.addEventListener('error',finish,{once:true});
+ video.muted=true;
+ video.play().catch(finish);
+}
 function transcriptParts(text){
  return text.split(/(\[[^\]]+\])/).map(part=>part.trim()).filter(Boolean).map(part=>{
   if(part.startsWith('[')&&part.endsWith(']')){
@@ -175,7 +201,12 @@ function list(){
   return button(`${avatar(id)}<span class="list-copy"><b>${roomTitle(id)}</b><small${typing?' class="list-typing"':''}>${draftPreview||esc(summary)}</small></span>${time}${unreadBadge(unread)}`,'chat',`data-room="${id}"`,'chat-row');
  }).join('');
  const next=state.ending?button('结局','end','aria-label="返回结局"'):groupButton();
- return `${tabHeader('微讯',next)}${wideSearch('search','搜索聊天记录')}<div class="chat-list">${rows}</div>${nav()}`;
+ const hint=showOpeningHint?`<aside class="opening-hint" tabindex="-1" aria-label="开场提示">
+  <div class="opening-hint-copy"><b>先看「撤场小分队」</b><p>先看园区图，再听群语音。</p></div>
+  ${button('打开群聊','chat','data-room="old"','opening-hint-primary')}
+  ${button(icon('close',16),'dismissOpeningHint','aria-label="关闭开场提示"','opening-hint-close')}
+ </aside>`:'';
+ return `${tabHeader('微讯',next)}${wideSearch('search','搜索聊天记录')}${hint}<div class="chat-list">${rows}</div>${nav()}`;
 }
 function wideSearch(action,label){
  return `<div class="tab-search">${button(`${designIcon('search')}<span>搜索</span>`,action,`aria-label="${label}"`)}</div>`;
@@ -403,7 +434,6 @@ function dialogContent(){
  if(m.kind==='editStatus')return `<h2>状态</h2><input id="profile-status" class="search-field" type="text" maxlength="24" placeholder="写下此刻的状态" aria-label="状态" value="${esc(state.chatUi?.profileStatus??'')}">${button('保存','saveStatus','','primary wide')}${button('取消','close','','wide')}`;
  if(m.kind==='clueDirectory')return `<h2>线索</h2>${button('园区位置','map','','wide')}${button('门锁面板','lock','','wide')}${button('返回','close','','wide')}`;
  if(m.kind==='stickerAlbum')return `<h2>表情</h2><div class="sticker-album">${stickers.map((_,i)=>sticker(i)).join('')}</div>${button('返回','close','','wide')}`;
- if(m.kind==='welcome')return `<span class="eyebrow">一段尚未结束的会话</span><h2>别发到群里</h2><p>凌晨，你在旧厂房园区的临时休息室里，等着朋友撤场。</p><p>这部手机里，是你今晚所有的联系。</p><p class="muted">可自由聊天，也可从「＋」选择回复。阅读不会推进危险，进度自动保存。<br>建议佩戴耳机；静音游玩也有完整字幕。</p>${button('开启声音并进入','beginSound','','primary wide')}${button('静音查看消息','close','','wide')}<small>虚构通信恐怖短篇 · 约 15—20 分钟</small>`;
  if(m.kind==='hint')return `<h2>当前提示</h2><p>${esc(objective(state))}</p><p class="muted">阅读和查看提示不会推进危险。</p>${button(view==='discover'?'返回发现':'返回聊天','close','','primary wide')}`;
  if(m.kind==='about')return `<h2>本次会话</h2><p>《别发到群里》v1.3.3 公开试玩版</p><p>微信式架空通信软件。人物、文件、位置和门码均为游戏内容；不使用真实联系人或 GPS。</p><p>音频为本机合成语音与原创环境声，待真人录音替换。完整字幕可静音游玩。</p><p>节奏由重要行动推进，15—20 分钟尚待真人计时试玩。</p>${button('返回','close','','primary')}`;
  if(m.kind==='file'){const f=files[m.value];return `<div class="preview-header">${icon('file',36)}<h2>${esc(f.name)}</h2></div><small>${esc(f.version)}<br>来源：${esc(f.source)}</small>${m.value==='map'?mapSvg():''}<pre>${esc(f.text)}</pre>${m.value==='false'||m.value==='repair'?`<details><summary>版本与来源对照</summary><p>原图：建筑关系，未确认通行。<br>维修通知：北口吊装、西梯断电。<br>新路线：声称西梯可用，来源为春哥账号。<br>需向老潘请求现场核实。</p></details>`:''}<div class="dialog-actions">${!state.ending?button('转发','forward',`data-mid="${m.mid}"`)+button('收藏','save',`data-mid="${m.mid}"`):''}${button('关闭','close')}</div>`;}
@@ -488,6 +518,11 @@ function desktopToolbar(){
  return `<div class="desktop-toolbar" role="group" aria-label="游戏工具"><span>别发到群里</span>${settings}</div>`;
 }
 function render(){
+ if(!state.flags.welcomed){
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)finishOpening();
+  else renderOpening();
+  return;
+ }
  const restoreToolbarFocus=desktopSettingsOpen&&!modal;
  if(restoreToolbarFocus)desktopSettingsOpen=false;
  const sheet=isMessageSheet();
@@ -582,6 +617,8 @@ app.addEventListener('click',async e=>{
  const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,v=b.dataset.value,mid=b.dataset.mid;
  if(state.ending&&['send','suggest','sticker','emoji','newgroup','createGroup','quote','forward','save','location','call','resetCode','openDoor','leave','block'].includes(a)){toast('会话已结束，当前为只读记录。');return;}
  switch(a){
+ case 'skipOpening':finishOpening();return;
+ case 'dismissOpeningHint':showOpeningHint=false;break;
  case 'contactSection':document.querySelector(`.contacts-directory [data-directory-section="${v}"]`)?.scrollIntoView({block:'start'});return;
  case 'contactCard':if(people[b.dataset.room]||isBackground(b.dataset.room))openSide('contactCard',b.dataset.room);break;
  case 'saveStatus':{
@@ -615,7 +652,6 @@ app.addEventListener('click',async e=>{
  case 'selectGroup':if(newGroupIds.includes(v))modal={kind:'newgroup',group:v};break;
  case 'createGroup':if(newGroupIds.includes(v)){if(!activeGroupIds(state).includes(v))sendEvent({type:'NEW_GROUP',group:v});openChat(v);}break;
  case 'close':closeModal();break;
- case 'beginSound':modal=null;if(!await soundscape.enable())toast(soundscape.error);break;
  case 'sound':if(soundscape.enabled)soundscape.disable();else if(!await soundscape.enable())toast(soundscape.error);break;
  case 'soundPreview':if(!await playPreview(volume))toast('试听未能播放，请再点一次。');break;
  case 'alanLab':window.open('/lab.html','_blank','noopener');break;
@@ -686,11 +722,10 @@ app.addEventListener('click',async e=>{
  }
  render();
 });
-if(!state.flags.welcomed){state.flags.welcomed=true;modal={kind:'welcome'};}
-if(state.statusClockStartedAt==null){state.statusClockStartedAt=Date.now();saveState();}
+if(state.flags.welcomed&&state.statusClockStartedAt==null){state.statusClockStartedAt=Date.now();saveState();}
 render();
 
 setInterval(updateStatusClock,1000);
-document.addEventListener('visibilitychange',()=>{updateStatusClock();readVisibleChat();soundscape.setPaused(document.hidden||['settings','saves','restartConfirm','debug'].includes(modal?.kind));});
+document.addEventListener('visibilitychange',()=>{updateStatusClock();readVisibleChat();soundscape.setPaused(document.hidden||!state.flags.welcomed||['settings','saves','restartConfirm','debug'].includes(modal?.kind));});
 window.addEventListener('pagehide',()=>{soundscape.disable();});
 

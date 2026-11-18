@@ -14,16 +14,36 @@ async function quota(env,id,request,now){
  if(!await take(env.DB,`global:${day}`,Number(env.GLOBAL_DAILY_LIMIT||300),expiry))return '今天的共享自然对话次数已用完，仍可继续本地剧情。';
  return null;
 }
+function assetBytes(base64,start,end){
+ const firstBlock=Math.floor(start/3);
+ const encoded=base64.slice(firstBlock*4,Math.ceil((end+1)/3)*4);
+ const offset=start-firstBlock*3;
+ const length=end-start+1;
+ if(Uint8Array.fromBase64)return Uint8Array.fromBase64(encoded).subarray(offset,offset+length);
+ const binary=atob(encoded),bytes=new Uint8Array(length);
+ for(let i=0;i<length;i++)bytes[i]=binary.charCodeAt(offset+i);
+ return bytes;
+}
 export function createWorker({generate=generateNpc,now=()=>Date.now()}={}){return {async fetch(request,env,ctx){
  const url=new URL(request.url),route=url.pathname;
  if(!route.startsWith('/api/')){
   if(!['GET','HEAD'].includes(request.method))return new Response('Not found',{status:404});
   const asset=assets[route];if(!asset)return new Response('Not found',{status:404});
-  const bytes=Uint8Array.from(atob(asset.base64),c=>c.charCodeAt(0));
   const headers={'Content-Type':asset.type,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Cache-Control':route.startsWith('/assets/')?'public,max-age=86400':'no-cache','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob: data:; connect-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self' https://chatgpt.com https://*.chatgpt.com"};
-  const range=request.headers.get('Range')?.match(/^bytes=(\d+)-(\d*)$/);
-  if(range&&route.startsWith('/assets/')){const start=Number(range[1]),end=Math.min(range[2]?Number(range[2]):bytes.length-1,bytes.length-1);if(start>end||start>=bytes.length)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${bytes.length}`}});return new Response(request.method==='HEAD'?null:bytes.subarray(start,end+1),{status:206,headers:{...headers,'Accept-Ranges':'bytes','Content-Range':`bytes ${start}-${end}/${bytes.length}`}});}
-  return new Response(request.method==='HEAD'?null:bytes,{headers:{...headers,'Accept-Ranges':'bytes'}});
+  const media=route.startsWith('/assets/');
+  if(media)headers['Accept-Ranges']='bytes';
+  const range=media?request.headers.get('Range')?.match(/^bytes=(\d*)-(\d*)$/):null;
+  if(range&&(range[1]||range[2])){
+   const start=range[1]?Number(range[1]):Math.max(0,asset.size-Number(range[2]));
+   const end=range[1]&&range[2]?Math.min(Number(range[2]),asset.size-1):asset.size-1;
+   if(start>end||start>=asset.size)return new Response(null,{status:416,headers:{'Content-Range':`bytes */${asset.size}`}});
+   return new Response(request.method==='HEAD'?null:assetBytes(asset.base64,start,end),{
+    status:206,headers:{...headers,'Content-Range':`bytes ${start}-${end}/${asset.size}`,'Content-Length':String(end-start+1)}
+   });
+  }
+  return new Response(request.method==='HEAD'?null:assetBytes(asset.base64,0,asset.size-1),{
+   headers:{...headers,'Content-Length':String(asset.size)}
+  });
  }
  if(!['/api/status','/api/npc/dialogue'].includes(route))return json({error:'接口不存在'},404);
  if(!env.SESSION_SECRET)return json({configured:false,mode:'local',reason:'当前使用本地剧情'},503);
