@@ -1,0 +1,17 @@
+{
+  "name": "wechat-play",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-11-18",
+  "vars": {
+    "GLOBAL_DAILY_LIMIT": "300",
+    "PLAYER_DAILY_LIMIT": "150"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "wechat-play",
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "drizzle"
+    }
+  ]
+}

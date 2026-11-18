@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.openai/site-source.json
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+.wrangler/
+/wrangler.jsonc
+worker/assets.generated.js
+/deployment-record.json

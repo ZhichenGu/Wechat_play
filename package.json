@@ -1,0 +1,18 @@
+{
+  "name": "biefadaoqunli-hosted",
+  "version": "1.3.3",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prestart": "npm run build",
+    "start": "node scripts/preview.mjs",
+    "db:generate": "drizzle-kit generate",
+    "test": "node --experimental-sqlite --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "drizzle-kit": "0.31.10",
+    "drizzle-orm": "0.45.2"
+  }
+}
