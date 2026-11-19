@@ -1,18 +1,20 @@
-import {fresh,dispatch,retry,objective} from './engine.js';
-import {rooms,people,files,voices,stickers,stickerFaces,chapters,endings,newGroupIds,activeGroupIds,isMixedGroup} from './story.js';
+import {PARTY_PLAYTEST_BUILD} from './party-story.js';
+import {fresh,dispatch,retry,objective,rooms,people,files,voices,stickers,stickerFaces,endings,newGroupIds,activeGroupIds,isMixedGroup,load,save,
+ stageNpcReply,settleNpcReply,albumCovers,moments,profiles,priorChats,party,npcIds,partyLink,hasLegacy,syncCatalog} from './session.js';
+import {createPlaytest,exportPlaytest} from './party-playtest.js';
+import {partySuggestions} from './party-engine.js';
 import {backgroundContacts,backgroundHistory,sendBackgroundMessage} from './background-contacts.js';
-import {albumCovers,moments,profiles} from './moments.js';
-import {priorChats} from './prior-chats.js';
 import {unreadCount,markRead,storeDraft,statusClockTime} from './chat-ui.js';
-import {load,save} from './save.js';
 import {npcReply} from './ai.js';
-import {stageNpcReply,settleNpcReply} from './reply-delivery.js';
 import {playVoice,stopAudio,playPreview,setVoiceOutput,soundscape} from './audio.js';
 let state=load()||fresh(),view='list',room='lan',panel=null,modal=null,draft='',quote=null,volume=soundscape.prefs.master,ai=localStorage.getItem('alan-ai-enabled')!=='false',epoch=0,controller=null,callMin=false,toastTimer;
 const app=document.querySelector('#app');
+syncCatalog(state);
+const playtest=party&&new URLSearchParams(location.search).has('playtest')?createPlaytest(localStorage):null;
+if(playtest)playtest.attach(state);
 const backgroundIds=Object.keys(backgroundContacts);
 const isBackground=id=>Object.hasOwn(backgroundContacts,id);
-const roomTitle=id=>rooms[id]?.name??people[id]?.name??backgroundContacts[id].name;
+const roomTitle=id=>rooms[id]?.name??people[id]?.name??backgroundContacts[id]?.name??'系统';
 const roomMessages=id=>isBackground(id)?backgroundHistory(state,id):state.messages.filter(m=>m.room===id);
 const scrollPositions={},sideHistory=[];
 let viewedContact=null,momentsOwner=null,viewedMoment=null;
@@ -31,17 +33,19 @@ const button=(label,action,extra='',cls='')=>`<button class="${cls}" data-action
 function avatar(id,cls=''){
  const photo=backgroundContacts[id]?.avatar??people[id]?.avatar;
  if(photo)return `<span class="avatar ${cls}"><img src="./assets/contacts/${photo}.png" alt=""></span>`;
- if(rooms[id]?.members.length>2)return `<span class="avatar group ${cls}">${rooms[id].members.filter(x=>x!=='me').concat('me').map(x=>avatar(x,'tiny')).join('')}</span>`;
+ if(rooms[id]?.members.length>2)return `<span class="avatar group ${rooms[id].members.length>4?'group-many':''} ${cls}">${rooms[id].members.filter(x=>x!=='me').concat('me').map(x=>avatar(x,'tiny')).join('')}</span>`;
  const p=people[id]||people.me;return `<span class="avatar ${cls}" style="background:${p.color}"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#ffffff18" d="M0 0h48v48H0z"/><path fill="#343b3e" d="M7 48q0-17 17-17t17 17"/><path fill="#d9c2aa" d="M16 19q0-10 8-10t8 10v7q-1 9-8 9t-8-9z"/><path fill="${id==='lin'?'#3d352e':'#293432'}" d="M14 23V13Q24-2 34 14v13l-4-11-14 4z"/><path d="M20 25h1m7 0h1" stroke="#444" stroke-width="2"/></svg></span>`;
 }
 function sticker(i){return `<div class="sticker-art"><svg viewBox="0 0 100 80" aria-hidden="true"><path d="M25 30 12 12Q0 40 21 51M75 30l13-18q12 28-9 39" fill="#b99d7a" stroke="#4b443a" stroke-width="2"/><ellipse cx="50" cy="43" rx="32" ry="28" fill="#f3e6cf" stroke="#4b443a" stroke-width="2"/><ellipse cx="50" cy="53" rx="14" ry="11" fill="#fff8eb"/><path d="m46 48 8 0-4 5Z" fill="#4b443a"/></svg><span class="dog-face">${stickerFaces[i]}</span><b>${stickers[i]}</b></div>`;}
+function statusTime(){return party?stamp(state.clock):statusClockTime(state.statusClockStartedAt);}
 function updateStatusClock(){
  const clock=document.querySelector('.statusbar time');
- if(clock)clock.textContent=statusClockTime(state.statusClockStartedAt);
+ if(clock)clock.textContent=statusTime();
 }
-function stamp(tick){return `01:${String(37+Math.floor(tick/2)).padStart(2,'0')}`;}
-function short(m){if(!m)return '';return m.type==='file'?'[文件] '+files[m.value].name:m.type==='voice'?'[语音]':m.type==='sticker'?'[表情]':m.type==='location'?'[位置] '+m.text:m.type==='call'?transcriptParts(m.text).map(part=>part.text).join(' '):m.text;}
-function commit(next){const before=state;if(next===before)return;state=next;soundscape.update(before,state);saveState();render();}
+function stamp(tick){if(party){const minute=23*60+42+Math.floor((tick??0)/2);return String(Math.floor(minute/60)%24).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');}return `01:${String(37+Math.floor(tick/2)).padStart(2,'0')}`;}
+function quoteText(m){return party&&m?.type==='file'?files[m.value].name+' · '+files[m.value].text:short(m);}
+function short(m){if(!m)return '';return m.type==='file'?'[文件] '+files[m.value].name:m.type==='capture'?'[聊天截图]':m.type==='voice'?'[语音]':m.type==='sticker'?'[表情]':m.type==='location'?'[位置] '+m.text:m.type==='call'?transcriptParts(m.text).map(part=>part.text).join(' '):m.text;}
+function commit(next){const before=state;if(next===before)return;state=next;syncCatalog(state);playtest?.update(before,state);soundscape.update(before,state);saveState();render();}
 function sendEvent(e){commit(dispatch(state,{id:crypto.randomUUID(),runId:state.runId,...e}));}
 function cancelReply(){controller?.abort();if(state.replyInFlight)commit(settleNpcReply(state,state.replyInFlight.token));}
 function saveState(){if(!save(state))toast('浏览器未能保存；请保持此页开启。');}
@@ -82,10 +86,11 @@ function readVisibleChat(messages=document.querySelector('#messages')){
 }
 function toast(text){document.querySelector('.toast')?.remove();const el=document.createElement('div');el.className='toast';el.textContent=text;document.body.append(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),2600);}
 function closeModal(){const copied=modal?.kind==='message'&&state.messages.find(m=>m.id===modal.mid)?.value==='copy';if(modal?.kind==='settings'||(activeVoice&&modal?.mid===activeVoice.id))stopAudio();modal=null;if(copied)reviewCopiedVoice();}
-function reset(next){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;modal=null;panel=null;draft='';quote=null;callMin=false;showOpeningHint=false;view='list';saveState();render();}
+function reset(next,source='新开局'){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;syncCatalog(state);playtest?.start(state,source);modal=null;panel=null;draft='';quote=null;callMin=false;showOpeningHint=false;view='list';saveState();render();}
 function finishOpening(){
  if(state.flags.welcomed)return;
  state.flags.welcomed=true;
+ playtest?.mark('进入微讯');
  state.statusClockStartedAt??=Date.now();
  showOpeningHint=true;
  saveState();
@@ -94,6 +99,17 @@ function finishOpening(){
 }
 function renderOpening(){
  if(app.querySelector('.opening-film'))return;
+ if(party){
+  soundscape.setPaused(true);
+  app.innerHTML=`<section class="phone phone-opening" aria-label="故事开场">
+   <div class="opening-film party-film"><div class="party-hall"></div><div class="party-captions">
+   <p>周六 23:42<br>生日聚会刚散场。</p><p>你回楼上取充电器。<br>楼梯口有人反复喊你的名字。</p>
+   <p>你退进 B03，反锁了门。<br>手机亮了。<br><strong>「你在哪间？我上来接你。」</strong></p>
+   </div></div>${button('跳过','skipOpening','aria-label="跳过开场"','opening-skip')}</section>`;
+  const film=app.querySelector('.party-film');
+  setTimeout(()=>{if(film.isConnected)finishOpening();},9000);
+  return;
+ }
  soundscape.setPaused(true);
  app.innerHTML=`<section class="phone phone-opening" aria-label="故事开场">
   <video class="opening-film" src="/assets/opening.mp4" playsinline muted preload="auto"
@@ -124,8 +140,9 @@ function renderTranscript(text){
   :`<span class="transcript-speech">${part.label?`<small class="transcript-source">${esc(part.label)}</small>`:''}${esc(part.text)}</span>`).join('')}</span>`;
 }
 function preview(m){if(m.type==='file')return `<div class="file-body"><div><b>${esc(files[m.value].name)}</b><small>${esc(files[m.value].version)}</small></div><span class="file-icon">${icon('file',30)}</span></div><div class="card-foot">聊天文件</div>`;
+ if(m.type==='capture')return `<span class="capture-card"><small>聊天截图</small><span>${esc(m.text)}</span></span>`;
  if(m.type==='sticker')return sticker(m.value);
- if(m.type==='location')return `<b class="location-title">${esc(m.text)}</b><small class="location-label">虚构 · 旧厂房园区</small>${mapSvg(false)}`;
+ if(m.type==='location')return `<b class="location-title">${esc(party?m.lastLocation??m.text:m.text)}</b><small class="location-label">${party?'虚构 · 旧商业楼':'虚构 · 旧厂房园区'}</small>${mapSvg(false)}`;
  if(m.type==='call')return `<span class="call-receipt-title">${icon('phone',16)}通话记录</span>${renderTranscript(m.text)}`;
  return `${m.quote?`<div class="quoted">${esc(m.quote)}</div>`:''}${esc(m.text)}`;
 }
@@ -180,7 +197,12 @@ async function playVoiceMessage(msg){
  if(!state.ending)sendEvent({type:'PLAY_VOICE',value:msg.value});
  else render();
 }
-function mapSvg(full=true){return `<svg class="map ${full?'full-map':''}" viewBox="0 0 330 230" role="img" aria-label="园区示意图：北装卸口、西门、B楼、东泵房和南侧服务门"><rect width="330" height="230" fill="#e7ebe5"/><path d="M0 46h330M0 190h330M40 0v230M272 0v230" stroke="#fafbf7" stroke-width="16"/><path d="M165 46v144h108M165 106h108M40 106h125" fill="none" stroke="#c8d1c7" stroke-width="8"/><g fill="#d2d8d0" stroke="#b8c3b6"><rect x="74" y="64" width="66" height="70"/><rect x="190" y="64" width="54" height="65"/><rect x="72" y="153" width="61" height="24"/></g><g font-family="sans-serif" font-size="11" fill="#667366" text-anchor="middle"><text x="107" y="102">B 楼</text><text x="217" y="100">泵房</text><text x="106" y="169">设备间</text><text x="165" y="25">北装卸口</text><text x="40" y="140">西门</text><text x="285" y="140">东门</text><text x="165" y="219">南侧服务门</text></g><circle cx="110" cy="114" r="7" fill="#6a93c1" stroke="white" stroke-width="3"/><text x="310" y="23" font-size="12" fill="#849284">N ↑</text></svg>`;}
+function mapSvg(full=true){if(party)return `<svg class="map ${full?'full-map':''}" viewBox="0 0 330 222" role="img" aria-label="商业楼出口示意图">
+ <rect width="330" height="222" fill="#e7ebe5"/><rect x="62" y="40" width="207" height="130" rx="5" fill="#d3dcd3"/>
+ <path d="M165 31v157M51 100h228" stroke="#fafbf7" stroke-width="15"/>
+ <path d="M165 100h115M165 101v87" stroke="#739386" stroke-width="5" fill="none"/>
+ <g fill="#46574f" text-anchor="middle" font-size="12"><text x="165" y="24">正门</text><text x="35" y="103">西门</text><text x="300" y="103">东门</text>
+ <text x="111" y="72">包间 208</text><text x="216" y="85">后场通道</text><text x="215" y="150">侧楼梯</text><text x="165" y="206">后院门</text></g></svg>`;return `<svg class="map ${full?'full-map':''}" viewBox="0 0 330 230" role="img" aria-label="园区示意图：北装卸口、西门、B楼、东泵房和南侧服务门"><rect width="330" height="230" fill="#e7ebe5"/><path d="M0 46h330M0 190h330M40 0v230M272 0v230" stroke="#fafbf7" stroke-width="16"/><path d="M165 46v144h108M165 106h108M40 106h125" fill="none" stroke="#c8d1c7" stroke-width="8"/><g fill="#d2d8d0" stroke="#b8c3b6"><rect x="74" y="64" width="66" height="70"/><rect x="190" y="64" width="54" height="65"/><rect x="72" y="153" width="61" height="24"/></g><g font-family="sans-serif" font-size="11" fill="#667366" text-anchor="middle"><text x="107" y="102">B 楼</text><text x="217" y="100">泵房</text><text x="106" y="169">设备间</text><text x="165" y="25">北装卸口</text><text x="40" y="140">西门</text><text x="285" y="140">东门</text><text x="165" y="219">南侧服务门</text></g><circle cx="110" cy="114" r="7" fill="#6a93c1" stroke="white" stroke-width="3"/><text x="310" y="23" font-size="12" fill="#849284">N ↑</text></svg>`;}
 function unreadBadge(count){
  return count?`<span class="unread" aria-hidden="true">${count>99?'99+':count}</span><span class="unread-label">${count} 条未读消息</span>`:'';
 }
@@ -188,7 +210,7 @@ function list(){
  const recentBackground=[...new Set((state.backgroundOutbox??[]).map(m=>m.room).reverse())];
  const earlierBackground=['dad','mom','zheng','fan','anning','jiang','xu','tao'];
  const backgroundDrafts=state.ending?[]:backgroundIds.filter(id=>state.chatUi?.drafts?.[id]);
- const ids=[...activeGroupIds(state),'lan','lin','zhou',...new Set([...backgroundDrafts,...recentBackground,...earlierBackground])];
+ const ids=[...activeGroupIds(state),...npcIds,...new Set([...backgroundDrafts,...recentBackground,...earlierBackground])];
  const rows=ids.map(id=>{
   const messages=roomMessages(id);
   const last=messages.at(-1)??priorChats[id]?.at(-1);
@@ -198,11 +220,11 @@ function list(){
   const time=last?`<time>${last.time??stamp(last.tick)}</time>`:'';
   const saved=state.ending?null:state.chatUi?.drafts?.[id];
   const draftPreview=saved?`<span class="draft-mark">[草稿]</span> ${esc(saved.text||'引用消息')}`:'';
-  return button(`${avatar(id)}<span class="list-copy"><b>${roomTitle(id)}</b><small${typing?' class="list-typing"':''}>${draftPreview||esc(summary)}</small></span>${time}${unreadBadge(unread)}`,'chat',`data-room="${id}"`,'chat-row');
+  return button(`${avatar(id)}<span class="list-copy"><b>${esc(roomTitle(id))}</b><small${typing?' class="list-typing"':''}>${draftPreview||esc(summary)}</small></span>${time}${unreadBadge(unread)}`,'chat',`data-room="${id}"`,'chat-row');
  }).join('');
  const next=state.ending?button('结局','end','aria-label="返回结局"'):groupButton();
  const hint=showOpeningHint?`<aside class="opening-hint" tabindex="-1" aria-label="开场提示">
-  <div class="opening-hint-copy"><b>先看「撤场小分队」</b><p>先看园区图，再听群语音。</p></div>
+  <div class="opening-hint-copy"><b>先看「${rooms.old.name}」</b><p>${party?'看看楼层图，再回条消息。':'先看园区图，再听群语音。'}</p></div>
   ${button('打开群聊','chat','data-room="old"','opening-hint-primary')}
   ${button(icon('close',16),'dismissOpeningHint','aria-label="关闭开场提示"','opening-hint-close')}
  </aside>`:'';
@@ -220,6 +242,7 @@ function nav(){
  return `<nav aria-label="底部导航">${items.map(([glyph,label,target])=>button(`<i>${designIcon('nav-'+glyph+(view===target?'-on':''))}</i><span>${label}</span>${target==='list'?unreadBadge(total):''}`,target,`aria-label="${label}"${target==='list'&&total?` aria-description="${total} 条未读消息"`:''}${view===target?' aria-current="page"':''}`,view===target?'selected':'')).join('')}</nav>`;
 }
 function suggestions(){
+ if(party)return partySuggestions(state,room);
  if(state.ending)return [];
  if(isMixedGroup(room))return ['收到','我单独联系你'];
  if(room==='lin')return ['你在哪？','你真的是春哥？','不要开门'];
@@ -258,13 +281,13 @@ function backgroundChatTools(){
  const emojis=panel==='backgroundEmojis'?`<section class="sticker-panel" aria-label="表情"><div class="emoji-line">${['👍','❤️','😅','😂','👀','🙏'].map(text=>button(text,'emoji',`data-text="${text}"`)).join('')}</div></section>`:'';
  return `<footer class="composer background-composer"><textarea id="draft" rows="1" aria-label="消息输入">${esc(draft)}</textarea>${draft.trim()?button('发送','send','','send'):emptyComposerAction()}</footer>${emojis}`;
 }
-function chat(){if(isBackground(room))return backgroundChat();const ms=roomMessages(room);return `${chatHeader(roomTitle(room)+(rooms[room].members.length>2?` (${rooms[room].members.length})`:''))}<div class="messages" id="messages">${historyBubbles(priorChats[room]??[])}${state.ending||ms.length?`<div class="time-sep">${state.ending?'本次会话已结束':'凌晨 '+stamp(state.clock)}</div>`:''}${ms.map(m=>m.from==='system'?`<div class="system-msg">${esc(m.text)}</div>`:`<div class="message ${m.from==='me'?'outgoing':''}" data-message="${m.id}" data-provider="${m.ai?.provider||'local'}">${contactAvatar(m.from)}<div class="message-content">${(rooms[room].members.length>2)&&m.from!=='me'?`<small class="sender">${people[m.from].name}</small>`:''}${m.type==='voice'?voiceBubble(m):`<button class="bubble ${m.type} ${m.from==='me'?'mine':''}" data-action="message" data-mid="${m.id}">${preview(m)}</button>`}${m.origin?`<small class="origin">转发自 ${rooms[m.origin.room].name} · ${people[m.origin.from]?.name||'系统'}</small>`:''}</div></div>`).join('')}</div>${state.replyInFlight?.room===room&&!state.ending?`<div class="typing-indicator" role="status" aria-live="polite">${esc(people[state.replyInFlight.who].name)}正在输入<span aria-hidden="true">…</span></div>`:''}${chatTools()}`;}
+function chat(){if(isBackground(room))return backgroundChat();const ms=roomMessages(room);return `${chatHeader(esc(roomTitle(room))+(rooms[room].members.length>2?` (${rooms[room].members.length})`:''))}<div class="messages" id="messages">${historyBubbles(priorChats[room]??[])}${state.ending||ms.length?`<div class="time-sep">${state.ending?'本次会话已结束':(party?'今晚 ':'凌晨 ')+stamp(state.clock)}</div>`:''}${ms.map(m=>m.from==='system'?`<div class="system-msg">${esc(m.text)}</div>`:`<div class="message ${m.from==='me'?'outgoing':''}" data-message="${m.id}" data-provider="${m.ai?.provider||'local'}">${contactAvatar(m.from)}<div class="message-content">${(rooms[room].members.length>2)&&m.from!=='me'?`<small class="sender">${people[m.from].name}</small>`:''}${m.type==='voice'?voiceBubble(m):`<button class="bubble ${m.type} ${m.from==='me'?'mine':''}" data-action="message" data-mid="${m.id}">${preview(m)}</button>`}${m.actualSpeaker?`<small class="origin">${people[m.actualSpeaker].name}借用此设备</small>`:''}${m.origin?`<small class="origin">转发自 ${esc(rooms[m.origin.room]?.name??'聊天记录')} · ${people[m.origin.from]?.name||'系统'}</small>`:''}</div></div>`).join('')}</div>${state.replyInFlight?.room===room&&!state.ending?`<div class="typing-indicator" role="status" aria-live="polite">${esc(people[state.replyInFlight.who].name)}正在输入<span aria-hidden="true">…</span></div>`:''}${chatTools()}`;}
 function chatTools(){
  if(state.ending)return `<footer class="review-footer"><span>会话记录 · 只读</span>${button('返回结局','end')}</footer>`;
- return `${quote?`<div class="quote-draft">引用：${esc(short(quote))}${button('×','unquote','aria-label="取消引用"')}</div>`:''}<footer class="composer">${button(designIcon('voice'),'voicemenu','aria-label="语音选项"')}<textarea id="draft" rows="1" aria-label="消息输入">${esc(draft)}</textarea>${button(designIcon('sticker'),'stickers','aria-label="表情"')}${draft.trim()?button('发送','send','','send'):button(designIcon('chat-add'),'plus','aria-label="更多功能"')}</footer>${panel==='replies'?`<section class="quick-replies" aria-label="可选回复">${suggestions().map(t=>button(esc(t),'suggest',`data-text="${esc(t)}"`)).join('')}</section>`:panel==='stickers'?`<section class="sticker-panel">${stickers.map((t,i)=>button(sticker(i),'sticker',`data-value="${i}" aria-label="${t}表情"`)).join('')}<div class="emoji-line">${['👍','❤️','😭','😅','👀','🙏'].map(t=>button(t,'emoji',`data-text="${t}"`)).join('')}</div></section>`:panel==='plus'?`<section class="plus-panel">${[['chat','可选回复','replies'],['file','文件','files'],['pin','位置','location'],['phone','语音通话','call'],['star','收藏','favorites'],['people','发起群聊','newgroup'],['lock','门锁','lock']].map(([i,t,a])=>button(`<span>${icon(i,27)}</span><small>${t}</small>`,a)).join('')}</section>`:''}`;
+ return `${quote?`<div class="quote-draft">引用：${esc(quoteText(quote))}${button('×','unquote','aria-label="取消引用"')}</div>`:''}<footer class="composer">${button(designIcon('voice'),'voicemenu','aria-label="语音选项"')}<textarea id="draft" rows="1" aria-label="消息输入">${esc(draft)}</textarea>${button(designIcon('sticker'),'stickers','aria-label="表情"')}${draft.trim()?button('发送','send','','send'):button(designIcon('chat-add'),'plus','aria-label="更多功能"')}</footer>${panel==='replies'?`<section class="quick-replies" aria-label="可选回复">${suggestions().map(t=>button(esc(t),'suggest',`data-text="${esc(t)}"`)).join('')}</section>`:panel==='stickers'?`<section class="sticker-panel">${stickers.map((t,i)=>button(sticker(i),'sticker',`data-value="${i}" aria-label="${t}表情"`)).join('')}<div class="emoji-line">${['👍','❤️','😭','😅','👀','🙏'].map(t=>button(t,'emoji',`data-text="${t}"`)).join('')}</div></section>`:panel==='plus'?`<section class="plus-panel">${[['chat','可选回复','replies'],['file','文件','files'],['pin','位置','location'],['phone','语音通话','call'],['star','收藏','favorites'],['people','发起群聊','newgroup'],['lock','门锁','lock']].map(([i,t,a])=>button(`<span>${icon(i,27)}</span><small>${t}</small>`,a)).join('')}</section>`:''}`;
 }
 function directoryRow(label,action,leading='',detail='',attributes=''){
- return button(`${leading}<span class="directory-label">${label}</span>${detail?`<small>${detail}</small>`:''}${designIcon('chevron')}`,action,attributes);
+ return button(`${leading}<span class="directory-label">${esc(label)}</span>${detail?`<small>${detail}</small>`:''}${designIcon('chevron')}`,action,attributes);
 }
 function directoryGroup(title,rows){
  return `<section class="directory-group"><h2 data-directory-section="${title}">${title}</h2><div class="directory-rows">${rows.join('')}</div></section>`;
@@ -274,7 +297,7 @@ function directoryIcon(glyph){
 }
 function contacts(){
  const row=(id,label,leading=avatar(id))=>directoryRow(label,rooms[id]?.members.length>2?'chat':'contactCard',leading,'',`data-room="${id}"`);
- const contactsBySection={C:['lin'],L:['lan','zhou']};
+ const contactsBySection=party?{C:['lin'],L:['lan','zhou'],X:['wei','rui'],Z:['yi']}:{C:['lin'],L:['lan','zhou']};
  for(const id of backgroundIds)(contactsBySection[backgroundContacts[id].section]??=[]).push(id);
  const sections=Object.keys(contactsBySection).sort();
  const contactGroups=sections.map(section=>directoryGroup(section,contactsBySection[section].map(id=>row(id,roomTitle(id))))).join('');
@@ -286,12 +309,12 @@ function contacts(){
   ['标签','contactTags','star','blue'],
   ['公众号','publicAccounts','file','blue'],
   ['服务号','serviceAccounts','chat','cyan'],
-  ['企业微讯联系人','workContacts','people','blue']
+  [party?'生日聚会的朋友':'企业微讯联系人','workContacts','people','blue']
  ];
  const top=shortcuts.map(([label,action,glyph,color])=>directoryRow(label,action,`<span class="contact-tile ${color}">${icon(glyph,24)}</span>`)).join('');
  const search=wideSearch('contactSearch','搜索联系人');
  const add=state.ending?'':button(icon('personAdd',25),'newFriends','aria-label="添加朋友"');
- const work=directoryGroup('我的企业',[directoryRow('旧厂房园区撤场组','workContacts',`<span class="contact-tile blue">${icon('people',24)}</span>`)]);
+ const work=party?'':directoryGroup('我的企业',[directoryRow('旧厂房园区撤场组','workContacts',`<span class="contact-tile blue">${icon('people',24)}</span>`)]);
  return `${tabHeader('通讯录',add)}${search}<div class="contacts-body"><div class="directory contacts-directory"><div class="directory-rows contact-shortcuts">${top}</div>${work}${contactGroups}</div>${index}</div>${nav()}`;
 }
 function discover(){
@@ -299,7 +322,7 @@ function discover(){
  const chatRow=(glyph,id,label,detail='')=>row(glyph,label,'chat',detail,`data-room="${id}"`);
  const groups=[
   [row('hint','朋友圈','moments'),directoryRow('当前提示','hint',directoryIcon('star'))],
-  [chatRow('group','old','撤场小分队',`${avatar('old')}<span>群聊</span>`)],
+  [chatRow('group','old',rooms.old.name,`${avatar('old')}<span>群聊</span>`)],
   [row('sound','氛围声音','settings',soundscape.enabled?'已开启':'已关闭')],
   [row('search','搜索消息','search')],
   [row('settings','会话设置','settings')],
@@ -310,7 +333,7 @@ function discover(){
  return `${tabHeader('发现',actions)}<div class="directory discover-directory">${groups.map(rows=>`<div class="directory-rows">${rows.join('')}</div>`).join('')}</div>${nav()}`;
 }
 function contactAvatar(id){
- return id==='me'?avatar(id):button(avatar(id),'contactCard',`data-room="${id}" aria-label="查看${roomTitle(id)}的资料"`,'profile-avatar-button');
+ return id==='me'?avatar(id):button(avatar(id),'contactCard',`data-room="${id}" aria-label="查看${esc(roomTitle(id))}的资料"`,'profile-avatar-button');
 }
 function sideHeader(title){
  return `<header class="chat-header">${button(designIcon('back'),'sideBack','aria-label="返回上一页"')}<h1>${title}</h1><span class="side-header-space"></span></header>`;
@@ -337,7 +360,7 @@ function momentPhoto(post,large=false){
 function momentCard(post){
   const liked=!!state.chatUi?.momentLikes?.[post.id];
   const likes=[...(post.likes??[]).map(roomTitle),...(liked?['我']:[])];
-  const author=post.author==='me'?'<span class="moment-author">撤场统筹</span>':button(roomTitle(post.author),'contactCard',`data-room="${post.author}"`,'moment-author');
+  const author=post.author==='me'?`<span class="moment-author">${party?'我':'撤场统筹'}</span>`:button(roomTitle(post.author),'contactCard',`data-room="${post.author}"`,'moment-author');
   const photo=post.photo==null?'':button(momentPhoto(post),'momentPhoto',`data-value="${post.id}" aria-label="查看大图：${photoLabels[post.photo]}"`,'moment-photo-button');
   const replies=likes.length||post.comments?.length?`<div class="moment-replies">${likes.length?`<p class="moment-likes">♡ ${likes.join('、')}</p>`:''}${(post.comments??[]).map(([who,text])=>`<p><b>${roomTitle(who)}：</b>${esc(text)}</p>`).join('')}</div>`:'';
   return `<article class="moment">${contactAvatar(post.author)}<div class="moment-copy">${author}<p>${esc(post.text)}</p>${photo}
@@ -393,7 +416,7 @@ function chatRecordDialog(filters){
 }
 function me(){
  return `<div class="directory profile-directory" aria-label="我">
- <div class="profile">${avatar('me')}<div><h2>撤场统筹</h2><small>微讯号：night_shift_03</small>${button(esc(state.chatUi?.profileStatus||'＋ 状态'),'editStatus','','profile-status')}</div></div>
+ <div class="profile">${avatar('me')}<div><h2>${party?'我':'撤场统筹'}</h2><small>微讯号：night_shift_03</small>${button(esc(state.chatUi?.profileStatus||'＋ 状态'),'editStatus','','profile-status')}</div></div>
  <div class="directory-rows">${directoryRow('服务','serviceAccounts',directoryIcon('chat'))}</div>
  <div class="directory-rows">
   ${directoryRow('收藏','favorites',directoryIcon('star'),state.evidence.length?`${state.evidence.length} 条`:'')}
@@ -413,16 +436,16 @@ function contactToolContent(kind){
  }
  if(kind==='newFriends')return `<h2>新的朋友</h2><p class="muted">暂无新的好友申请</p>${button('搜索联系人','contactSearch','','wide')}${close}`;
  if(kind==='chatOnly'||kind==='contactTags'||kind==='workContacts'){
-  const title={chatOnly:'仅聊天的朋友',contactTags:'标签',workContacts:'企业微讯联系人'}[kind];
-  const ids={chatOnly:['guo','wen'],contactTags:['dad','mom','lan','lin','zhou'],workContacts:['lan','lin','zhou']}[kind];
+  const title={chatOnly:'仅聊天的朋友',contactTags:'标签',workContacts:party?'生日聚会的朋友':'企业微讯联系人'}[kind];
+  const ids={chatOnly:['guo','wen'],contactTags:['dad','mom','lan','lin','zhou'],workContacts:npcIds}[kind];
   return `<h2>${title}</h2><div class="directory-rows">${ids.map(contacts).join('')}</div>${close}`;
  }
- if(kind==='publicAccounts')return `<h2>公众号</h2><p>旧厂房园区</p><p class="muted">园区活动和展览通知。</p>${close}`;
- if(kind==='serviceAccounts')return `<h2>园区服务</h2>${button('园区位置','map','','wide')}${button('聊天文件','files','','wide')}${close}`;
+ if(kind==='publicAccounts')return `<h2>公众号</h2><p>${party?'旧商业楼自助聚会馆':'旧厂房园区'}</p><p class="muted">${party?'订房信息与闭馆告示。':'园区活动和展览通知。'}</p>${close}`;
+ if(kind==='serviceAccounts')return `<h2>${party?'场馆服务':'园区服务'}</h2>${button(party?'场馆地图':'园区位置','map','','wide')}${button('聊天文件','files','','wide')}${close}`;
  return '';
 }
 function dialogContent(){
- if(state.pending){const p=state.pending;return `<h2>${p.kind==='open'?'允许门外的人进入？':p.kind==='abandon'?'不等朋友，提前离开？':'离开 B03 去会合？'}</h2><p>${p.kind==='open'?'你将主动解开反锁。请先核对门外身份。':p.kind==='abandon'?'你将独自结束救援。本次选择会被记录。':'先确认两位朋友的位置，再离开房间。'}</p><div class="dialog-actions">${button('取消','cancel')}${button('确认'+(p.kind==='open'?'开门':p.kind==='abandon'?'提前离开':'出门'),'confirm','','danger')}</div>`;}
+ if(state.pending){const p=state.pending;return `<h2>${p.kind==='open'?'允许门外的人进入？':p.kind==='abandon'?'不等朋友，提前离开？':'离开 B03 去会合？'}</h2><p>${p.kind==='open'?'你将主动解开反锁。请先核对门外身份。':p.kind==='abandon'?'你将独自结束救援。本次选择会被记录。':'先确认同伴的位置，再离开房间。'}</p><div class="dialog-actions">${button('取消','cancel')}${button('确认'+(p.kind==='open'?'开门':p.kind==='abandon'?'提前离开':'出门'),'confirm','','danger')}</div>`;}
  if(!modal)return '';
  const m=modal;
  const contactTool=contactToolContent(m.kind);
@@ -432,26 +455,33 @@ function dialogContent(){
   return `<h2>朋友资料</h2><p>${esc(profile.note)}</p>${profile.signature?`<p>${esc(profile.signature)}</p>`:''}${button('返回','close','','wide')}`;
  }
  if(m.kind==='editStatus')return `<h2>状态</h2><input id="profile-status" class="search-field" type="text" maxlength="24" placeholder="写下此刻的状态" aria-label="状态" value="${esc(state.chatUi?.profileStatus??'')}">${button('保存','saveStatus','','primary wide')}${button('取消','close','','wide')}`;
- if(m.kind==='clueDirectory')return `<h2>线索</h2>${button('园区位置','map','','wide')}${button('门锁面板','lock','','wide')}${button('返回','close','','wide')}`;
+ if(m.kind==='clueDirectory')return `<h2>线索</h2>${button(party?'场馆地图':'园区位置','map','','wide')}${button('门锁面板','lock','','wide')}${button('返回','close','','wide')}`;
  if(m.kind==='stickerAlbum')return `<h2>表情</h2><div class="sticker-album">${stickers.map((_,i)=>sticker(i)).join('')}</div>${button('返回','close','','wide')}`;
  if(m.kind==='hint')return `<h2>当前提示</h2><p>${esc(objective(state))}</p><p class="muted">阅读和查看提示不会推进危险。</p>${button(view==='discover'?'返回发现':'返回聊天','close','','primary wide')}`;
- if(m.kind==='about')return `<h2>本次会话</h2><p>《别发到群里》v1.3.3 公开试玩版</p><p>微信式架空通信软件。人物、文件、位置和门码均为游戏内容；不使用真实联系人或 GPS。</p><p>音频为本机合成语音与原创环境声，待真人录音替换。完整字幕可静音游玩。</p><p>节奏由重要行动推进，15—20 分钟尚待真人计时试玩。</p>${button('返回','close','','primary')}`;
- if(m.kind==='file'){const f=files[m.value];return `<div class="preview-header">${icon('file',36)}<h2>${esc(f.name)}</h2></div><small>${esc(f.version)}<br>来源：${esc(f.source)}</small>${m.value==='map'?mapSvg():''}<pre>${esc(f.text)}</pre>${m.value==='false'||m.value==='repair'?`<details><summary>版本与来源对照</summary><p>原图：建筑关系，未确认通行。<br>维修通知：北口吊装、西梯断电。<br>新路线：声称西梯可用，来源为春哥账号。<br>需向老潘请求现场核实。</p></details>`:''}<div class="dialog-actions">${!state.ending?button('转发','forward',`data-mid="${m.mid}"`)+button('收藏','save',`data-mid="${m.mid}"`):''}${button('关闭','close')}</div>`;}
+ if(m.kind==='about')return `<h2>本次会话</h2><p>《别发到群里》${party?`生日散场篇 · 试玩版 ${PARTY_PLAYTEST_BUILD}`:'v1.3.3 公开试玩版'}</p><p>微信式架空通信软件。人物、文件、位置和门码均为游戏内容；不使用真实联系人或 GPS。</p><p>音频为本机合成语音与原创环境声，待真人录音替换。完整字幕可静音游玩。</p><p>节奏由重要行动推进，15—20 分钟尚待真人计时试玩。</p>${button('返回','close','','primary')}`;
+ if(m.kind==='file'){const f=files[m.value];return `<div class="preview-header">${icon('file',36)}<h2>${esc(f.name)}</h2></div><small>${esc(f.version)}<br>来源：${esc(f.source)}</small>${m.value==='map'?mapSvg():''}<pre>${esc(f.text)}</pre>${!party&&(m.value==='false'||m.value==='repair')?`<details><summary>版本与来源对照</summary><p>原图：建筑关系，未确认通行。<br>维修通知：北口吊装、西梯断电。<br>新路线：声称西梯可用，来源为春哥账号。<br>需向老潘请求现场核实。</p></details>`:''}<div class="dialog-actions">${!state.ending?button('转发','forward',`data-mid="${m.mid}"`)+(party?button('转发截图','capture',`data-mid="${m.mid}"`):'')+button('收藏','save',`data-mid="${m.mid}"`):''}${button('关闭','close')}</div>`;}
  if(m.kind==='message'){
   const msg=state.messages.find(x=>x.id===m.mid);
   if(isMessageSheet()){
    const target=`data-mid="${msg.id}"`;
-   return `<p class="sheet-preview">${esc(short(msg))}</p><div class="sheet-actions">${button('引用','quote',target)}${button('转发','forward',target)}${button('收藏','save',target)}</div>${button('取消','close','','sheet-cancel')}`;
+   return `<p class="sheet-preview">${esc(short(msg))}</p><div class="sheet-actions">${button('引用','quote',target)}${button('转发','forward',target)}${party?button('转发截图','capture',target):''}${button('收藏','save',target)}</div>${button('取消','close','','sheet-cancel')}`;
   }
-  const sample=msg.type==='voice'||msg.type==='call'
+  const sample=msg.type==='capture'?`<h2>聊天截图</h2><pre>${esc(msg.text)}</pre>`:msg.type==='voice'||msg.type==='call'
    ?`<h2>${msg.type==='voice'?'语音字幕':'通话记录'}</h2>${renderTranscript(msg.type==='voice'?voices[msg.value].text:msg.text)}`
    :`<p class="message-sample">${esc(short(msg))}</p>`;
   return `${sample}${msg.type==='voice'?button('▶ 回放语音','play',`data-mid="${msg.id}"`):''}${!state.ending?`<div class="dialog-actions">${button('引用','quote',`data-mid="${msg.id}"`)}${button('转发','forward',`data-mid="${msg.id}"`)}${button('收藏','save',`data-mid="${msg.id}"`)}</div>`:''}${button('关闭','close','','wide')}`;}
- if(m.kind==='forward')return `<h2>选择发送给</h2><p class="muted">内容：${esc(short(state.messages.find(x=>x.id===m.mid)))}</p>${[...activeGroupIds(state),'lan','lin','zhou'].map(id=>button(`${avatar(id)} ${rooms[id].name}`,'target',`data-room="${id}" data-mid="${m.mid}"`,'contact')).join('')}${button('取消','close','','wide')}`;
- if(m.kind==='forwardConfirm')return `<h2>发送给 ${rooms[m.target].name}</h2><p>${esc(short(state.messages.find(x=>x.id===m.mid)))}</p><div class="dialog-actions">${button('取消','close')}${button('确认发送','forwardSend',`data-room="${m.target}" data-mid="${m.mid}"`,'primary')}</div>`;
+ if(m.kind==='forward')return `<h2>选择发送给</h2><p class="muted">${m.capture?'截图会带上原消息可见内容。':'内容：'}${esc(short(state.messages.find(x=>x.id===m.mid)))}</p>${[...activeGroupIds(state),...npcIds].map(id=>button(`${avatar(id)} ${esc(rooms[id].name)}`,'target',`data-room="${id}" data-mid="${m.mid}"`,'contact')).join('')}${button('取消','close','','wide')}`;
+ if(m.kind==='forwardConfirm')return `<h2>发送给 ${esc(rooms[m.target].name)}</h2><p>${m.capture?'发送截图 · ':''}${esc(short(state.messages.find(x=>x.id===m.mid)))}</p><div class="dialog-actions">${button('取消','close')}${button('确认发送','forwardSend',`data-room="${m.target}" data-mid="${m.mid}"`,'primary')}</div>`;
  if(m.kind==='members'){const id=m.room||room;
- if(isBackground(id))return `<h2>${roomTitle(id)}</h2><div class="members"><div>${contactAvatar(id)}<small>${backgroundContacts[id].note}</small></div></div>${button('查找聊天记录','roomSearch','','wide')}${button('返回','close','','wide')}`;
- return `<h2>${rooms[id].name}</h2><div class="members">${rooms[id].members.map(p=>`<div>${contactAvatar(p)}<small>${people[p].name}</small></div>`).join('')}</div><p class="muted">群内消息会送达以上每个账号。账号所在的设备不等于本人位置。</p>${button('查找聊天记录','roomSearch','','wide')}${id==='lin'?button('屏蔽来电','block','','wide'):''}${view==='chat'&&!state.ending?button('查看当前提示','hint','','wide')+button('会话设置','settings','','wide'):''}${button('返回','close','','wide')}`;}
+ if(isBackground(id))return `<h2>${esc(roomTitle(id))}</h2><div class="members"><div>${contactAvatar(id)}<small>${backgroundContacts[id].note}</small></div></div>${button('查找聊天记录','roomSearch','','wide')}${button('返回','close','','wide')}`;
+ return `<h2>${esc(rooms[id].name)}</h2><div class="members">${rooms[id].members.map(p=>`<div>${contactAvatar(p)}<small>${people[p].name}</small></div>`).join('')}</div><p class="muted">群内消息会送达以上每个账号。账号所在的设备不等于本人位置。</p>${button('查找聊天记录','roomSearch','','wide')}${(party?npcIds.includes(id):id==='lin')&&!state.ending?button('屏蔽来电','block','','wide'):''}${party&&state.groups[id]&&!state.ending?button('编辑群成员和群名','partyEdit',`data-room="${id}"`,'wide'):''}${view==='chat'&&!state.ending?button('查看当前提示','hint','','wide')+button('会话设置','settings','','wide'):''}${button('返回','close','','wide')}`;}
+ if(party&&m.kind==='newgroup'){
+  const selected=m.members??[];
+  return `<h2>${m.edit?'编辑群聊':'发起群聊'}</h2><p>至少选择两位联系人。每条消息按发送时的成员送达。</p>
+   <label class="field">群名<input id="party-group-name" type="text" class="search-field" maxlength="20" value="${esc(m.name??'')}" placeholder="临时群聊"></label>
+   <div class="group-candidates party-group-candidates">${npcIds.map(id=>button(`${avatar(id)}<span>${people[id].name}</span>`,'partyMember',`data-value="${id}" aria-pressed="${selected.includes(id)}"`,'group-candidate')).join('')}</div>
+   ${button(m.edit?'保存群聊':'建立群聊','partyGroup',selected.length<2?'disabled':'','primary wide')}${button('取消','close','','wide')}`;
+ }
  if(m.kind==='newgroup'){
   const selected=m.group??'safe',existing=activeGroupIds(state).includes(selected);
   const choices=newGroupIds.map(id=>{
@@ -463,15 +493,35 @@ function dialogContent(){
   return `<h2>发起群聊</h2><p>选择两位联系人。群消息会送达所选账号。</p><div class="group-candidates">${choices}</div>${button(`${existing?'打开':'建立'}「${rooms[selected].name}」`,'createGroup',`data-value="${selected}"`,'primary wide')}${button('取消','close','','wide')}`;
  }
  if(m.kind==='files')return `<h2>聊天文件</h2>${[...new Set(state.messages.filter(x=>x.type==='file').map(x=>x.value))].map(id=>{const msg=state.messages.find(x=>x.value===id&&x.type==='file');return button(`${icon('file')} ${files[id].name}`,'file',`data-value="${id}" data-mid="${msg.id}"`,'file-row');}).join('')}${button('取消','close','','wide')}`;
- if(m.kind==='favorites')return `<h2>收藏</h2>${state.evidence.length?state.evidence.map(id=>{const msg=state.messages.find(x=>x.id===id);return button(`<b>${esc(short(msg))}</b><small>来源：${rooms[msg.room].name} / ${people[msg.from]?.name||'系统'}</small>`,'message',`data-mid="${id}"`,'favorite');}).join(''):'<p class="muted">打开消息菜单或文件预览，可收藏证据。</p>'}${button('返回','close','','wide')}`;
- if(m.kind==='location')return `<h2>位置</h2><p>发送给：${rooms[room].name}</p>${mapSvg()}<label class="field">地点<select id="location-value" aria-label="地点"><option value="area">B 楼附近（仅园区点位）</option><option value="room">B 楼二层 B03（准确房间）</option><option value="east">东门外</option><option value="south">南侧服务门</option></select></label><div class="dialog-actions">${button('发送地点','sendLocation')}${button('共享位置','shareLocation')}</div>${state.sharedSelf?.[room]?button('结束我在本会话的共享','stopSelf','','wide danger'):''}<p class="muted">发送地点是固定卡片。共享位置会随游戏内设备移动更新；停止后不删除旧信息。这里不读取真实 GPS。</p>${button('取消','close','','wide')}`;
- if(m.kind==='locationConfirm')return `<h2>${m.share?'共享位置':'发送地点'}</h2><p>发送给：${rooms[room].name}</p><p>${esc(m.label)}</p>${button('确认发送','locationSend','','primary wide')}${button('取消','close','','wide')}`;
- if(m.kind==='locationView'){const msg=state.messages.find(x=>x.id===m.mid);const publicLan=msg.value==='public';const shared=msg.isShared||publicLan;const active=publicLan?state.shared.old:state.sharedSelf?.[msg.room];return `<h2>${shared?'共享位置':'地点'}</h2><p>${esc(shared?publicLan?`老潘的设备：${active?state.positions.lan:msg.lastLocation||'展厅'}`:msg.lastLocation:msg.text)}</p>${mapSvg()}<p class="muted">${shared?active?'共享中 · 设备点位随关键行动更新':'共享已结束 · 记录保留':'固定地点卡片 · 不随设备移动'}<br>来源：${rooms[msg.room].name} / ${people[msg.from].name}</p>${shared&&msg.from==='me'&&active?button('结束我在本会话的共享','stopSelf','','wide danger'):''}${button('返回','close','','wide')}`;}
+ if(m.kind==='favorites')return `<h2>收藏</h2>${state.evidence.length?state.evidence.map(id=>{const msg=state.messages.find(x=>x.id===id);return button(`<b>${esc(short(msg))}</b><small>来源：${esc(rooms[msg.room]?.name??'聊天记录')} / ${people[msg.from]?.name||'系统'}</small>`,'message',`data-mid="${id}"`,'favorite');}).join(''):'<p class="muted">打开消息菜单或文件预览，可收藏证据。</p>'}${button('返回','close','','wide')}`;
+ if(m.kind==='location')return `<h2>位置</h2><p>发送给：${esc(rooms[room].name)}</p>${mapSvg()}<label class="field">地点<select id="location-value" aria-label="地点"><option value="area">B 楼附近（${party?'大致点位':'仅园区点位'}）</option><option value="room">B 楼二层 B03（准确房间）</option><option value="east">东门外</option><option value="south">${party?'后院门':'南侧服务门'}</option></select></label><div class="dialog-actions">${button('发送地点','sendLocation')}${button('共享位置','shareLocation')}</div>${state.sharedSelf?.[room]?button('结束我在本会话的共享','stopSelf','','wide danger'):''}<p class="muted">发送地点是固定卡片。共享位置会随游戏内设备移动更新；停止后不删除旧信息。这里不读取真实 GPS。</p>${button('取消','close','','wide')}`;
+ if(m.kind==='locationConfirm')return `<h2>${m.share?'共享位置':'发送地点'}</h2><p>发送给：${esc(rooms[room].name)}</p><p>${esc(m.label)}</p>${button('确认发送','locationSend','','primary wide')}${button('取消','close','','wide')}`;
+ if(m.kind==='locationView'){const msg=state.messages.find(x=>x.id===m.mid);const publicLan=msg.value==='public';const shared=msg.isShared||publicLan;const active=publicLan?state.shared.old:state.sharedSelf?.[msg.room]&&(!party||state.shares[msg.room]?.messageId===msg.id);return `<h2>${shared?'共享位置':'地点'}</h2><p>${esc(shared?publicLan?(party?`${people[msg.from].name}的设备：${msg.lastLocation}`:`老潘的设备：${active?state.positions.lan:msg.lastLocation||'展厅'}`):msg.lastLocation:msg.text)}</p>${mapSvg()}<p class="muted">${shared?active?'共享中 · 设备点位随关键行动更新':'共享已结束 · 记录保留':'固定地点卡片 · 不随设备移动'}<br>来源：${esc(rooms[msg.room]?.name??'聊天记录')} / ${people[msg.from].name}</p>${shared&&msg.from==='me'&&active?button('结束我在本会话的共享','stopSelf','','wide danger'):''}${button('返回','close','','wide')}`;}
+ if(party&&m.kind==='map')return `<h2>旧商业楼出口图</h2>${mapSvg()}<p>我的位置：${esc(state.positions.me)}</p>
+ <p>东门经后场。后院门经侧楼梯。具体通行情况请联系现场同伴。</p>${button('返回','close','','wide')}`;
  if(m.kind==='map')return `<h2>园区设备位置</h2>${mapSvg()}<p>我的设备：${state.positions.me}<br>老潘的设备：${state.positions.lan}<br>${state.shared.old?'原群共享：老潘仍在公开位置':'老潘已结束旧群共享'}</p>${room==='lin'||room==='old'?`<p>春哥账号设备：${state.positions.linPhone}</p>`:''}<p class="muted">位置只代表设备。具体房间需由文字或准确地点卡片确认。</p>${button('返回','close','','wide')}`;
  if(m.kind==='lock'&&state.ending)return `<h2>B03 · 门锁记录</h2><p>会话已结束，不能再操作门锁。</p><p>临时门码：${state.codeValid?'有效':'已作废'}</p>${button('返回','close','','wide')}`;
+ if(party&&m.kind==='lock'){
+  const record=state.messages.find(x=>x.type==='file'&&x.value==='handoff'&&x.room==='me');
+  return `<h2>B03 · 内侧智能门锁</h2><p>${state.exited?'你已离开房间。':'门已反锁。外侧需要有效临时访客码。'}</p>
+  <p>当前访客码：${state.codeValid?esc(state.case.shelter.code):'已作废'}</p>
+  ${button('查看门锁说明','file',`data-value="handoff" data-mid="${record.id}"`,'wide')}
+  ${state.exited?'':button('作废临时访客码','resetCode','','wide')+button('允许门外的人进入','openDoor','','wide danger')+button('出门会合','leave','','wide')+button('提前离开','abandon','','wide')}
+  ${button('返回','close','','wide')}`;
+ }
  if(m.kind==='lock')return `<h2>B03 · 内侧门锁</h2><p>${state.exited?'你已离开房间。':'门已反锁。外侧需要有效临时门码或内侧开门。'}</p><p>临时门码：${state.codeValid?'有效':'已作废'}</p>${button('作废临时门码','resetCode','','wide')}${button('允许门外的人进入','openDoor','','wide danger')}${button('离开房间去会合','leave','','wide')}${button('返回','close','','wide')}`;
- if(m.kind==='saves')return `<h2>会话存档</h2><p class="muted">当前位置自动保存。重试会回滚此后的消息、知识和行动。</p>${state.checkpoints.map((cp,i)=>button(cp.label,'retry',`data-value="${i}"`,'wide')).join('')||'<p>还没有到达检查点。</p>'}${button('重新开始','restartConfirm','','wide danger')}${button('返回','close','','wide')}`;
+ if(m.kind==='saves')return `<h2>会话存档</h2><p class="muted">当前位置自动保存。重试会回滚此后的消息、知识和行动。</p>${state.checkpoints.map((cp,i)=>button(cp.label,'retry',`data-value="${i}"`,'wide')).join('')||'<p>还没有到达检查点。</p>'}${button('重新开始','restartConfirm','','wide danger')}
+ ${playtest?button('本地试玩记录','playtest','','wide'):''}
+ ${party?`<p>Seed ${state.seed}</p>${hasLegacy()?`<a href="${partyLink}">继续旧版撤场存档</a>`:''}`:`<a href="${partyLink}">开始新版生日散场</a>`}${button('返回','close','','wide')}`;
+ if(party&&m.kind==='restartConfirm')return `<h2>开始一局生日散场</h2><p>本版当前会话会替换。Seed 可用于重现初始局面。</p>
+ <label class="field">Seed<input id="party-seed" class="search-field" inputmode="numeric" maxlength="10" placeholder="${state.seed}"></label>
+ ${button('使用输入的 Seed','seedRestart','','wide')}${button('同 Seed 重玩','sameSeed','','wide')}${button('重新随机','restart','','wide danger')}${button('取消','close','','wide')}`;
  if(m.kind==='restartConfirm')return `<h2>重新开始本次会话？</h2><p>当前进度会被新局替换。</p>${button('重新开始','restart','','wide danger')}${button('取消','close','','wide')}`;
+ if(m.kind==='playtest'&&playtest){
+  const data=playtest.report();
+  return `<h2>本地试玩记录</h2><p>${esc(data.build)} · Seed ${data.seed} · 剧情修订 ${data.storyRevision}</p><p>开始于 ${esc(new Date(data.startedAt).toLocaleString('zh-CN'))}，已记录 ${data.timeline.length} 个操作或事件。</p>
+   ${button('导出 JSON','exportPlaytest','','primary wide')}${button('返回存档','saves','','wide')}`;
+ }
  if(m.kind==='settings')return `<h2>会话设置 · 已暂停</h2><p class="muted">阅读和暂停都不会推进危险。语音均有完整字幕。</p>${button(soundscape.enabled?'关闭氛围声音':'开启氛围声音','sound',`aria-pressed="${soundscape.enabled}"`,'wide')}<label class="field">总音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label class="field">环境底噪 <input id="ambience-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.ambience}"></label><label class="field">事件音效 <input id="effects-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.effects}"></label><p class="muted">设置中暂停环境声，语音播放时背景自动降低。</p>${button('试听声音（30秒）','soundPreview','','wide')}${button('存档与重试','saves','','wide')}<label class="field checkbox-field"><input id="ai" type="checkbox" ${ai?'checked':''}>角色自然对话</label><p class="muted" id="api-status">开启时由角色自然回复；网络不可用或次数用完会自动使用本地回复。</p>${button('继续会话','close','','primary wide')}`;
  if(m.kind==='debug')return `<h2>事件与规则状态</h2><pre>${esc(JSON.stringify({...state,messages:state.messages.length,checkpoints:state.checkpoints.map(x=>x.label)},null,2))}</pre>${button('返回','close','','wide')}`;
  if(m.kind==='roomSearch')return chatRecordDialog(m);
@@ -488,7 +538,7 @@ function callScreen(){
  if(!call||callMin)return '';
  const incoming=call.status==='incoming';
  const name=people[call.who].name;
- const transcript=call.voice?voices[call.voice].text:call.who==='zhou'?'老金：我在园区外的车里。':'老潘：我还在找春哥，找到后联系你。';
+ const transcript=call.transcript??(call.voice?voices[call.voice].text:call.who==='zhou'?'老金：我在园区外的车里。':'老潘：我还在找春哥，找到后联系你。');
  return `<section class="call-screen" role="dialog" aria-modal="true" aria-label="${incoming?'语音来电':'语音通话'}">
   <div class="call-top">${button(icon('minimize',22),'callmin','aria-label="返回聊天" title="最小化通话"')}</div>
   <div class="call-identity">${avatar(call.who)}<h2>${name}</h2><p>${incoming?'邀请你进行语音通话…':'语音通话中'}</p></div>
@@ -505,7 +555,14 @@ function callScreen(){
 async function playCallVoice(){
  if(state.call?.voice)await playVoice(state.call.voice,callVolume(),callObserver);
 }
-function endScreen(){const e=endings[state.ending];return `<div class="ending ${state.ending==='C'?'death':''}"><span class="eyebrow">会话结束 · ${state.ending}</span><div class="ending-icon">${icon(state.ending==='C'?'phone':'chat',42)}</div><h2>${e.title}</h2><p>${e.sub}</p><p>${e.body}</p>${state.ending==='A'?'<div class="last-message">春哥账号 · 撤场小分队<br><b>你们是不是又建了一个群？</b></div>':''}<details><summary>查看这次的行动原因</summary><p>${esc(state.reason)}</p></details>${button('从检查点重试','saves','','wide')}${button('查看会话记录','review','','wide')}${button('重新开始','restartConfirm','','wide muted')}</div>`;}
+function partyResult(){
+ const c=state.case;
+ const whereabouts=npcIds.map(id=>`${people[id].name} · ${esc(state.people[id].place)}${state.missing.includes(id)?'（未会合）':''}`).join('<br>');
+ const nodes=state.nodes.map(node=>`<li>${esc(node.text)}</li>`).join('');
+ return `<p>Seed <b>${state.seed}</b> · 被冒用账号 <b>${people[c.danger].name}</b></p>
+ <details><summary>查看人物去向与关键节点</summary><p>${whereabouts}</p>${nodes?`<ul>${nodes}</ul>`:'<p>没有记录到敏感信息泄露。</p>'}</details>`;
+}
+function endScreen(){const e=endings[state.ending];return `<div class="ending ${state.ending==='C'?'death':''}"><span class="eyebrow">会话结束 · ${state.ending}</span><div class="ending-icon">${icon(state.ending==='C'?'phone':'chat',42)}</div><h2>${e.title}</h2><p>${e.sub}</p><p>${e.body}</p>${!party&&state.ending==='A'?'<div class="last-message">春哥账号 · 撤场小分队<br><b>你们是不是又建了一个群？</b></div>':''}<details><summary>查看这次的行动原因</summary><p>${esc(state.reason)}</p></details>${party?partyResult():''}${playtest?button('本地试玩记录','playtest','','wide'):''}${button('从检查点重试','saves','','wide')}${button('查看会话记录','review','','wide')}${button('重新开始','restartConfirm','','wide muted')}</div>`;}
 let review=false;
 function isMessageSheet(){
  return !state.pending&&!state.ending&&modal?.kind==='message'
@@ -531,7 +588,7 @@ function render(){
  const field=document.activeElement?.id==='draft'?document.activeElement:null;
  const selection=field?[field.selectionStart,field.selectionEnd]:null;
  const scroll=document.querySelector('#messages')?.scrollTop;
- app.innerHTML=`${desktopToolbar()}<section class="phone${view==='chat'?' phone-chat':view==='me'||view==='contactCard'?' phone-profile':''}${state.call&&!callMin&&!state.ending?' phone-in-call':''}${albumCover?' phone-moment-album':''}"${albumCover?` data-album-cover="${albumCover}"`:''} aria-label="微讯游戏"><div class="statusbar"><time>${statusClockTime(state.statusClockStartedAt)}</time><span class="status-icons" aria-hidden="true">${designIcon('signal')}${designIcon('wifi')}${designIcon('battery')}</span></div><div class="screen">${state.call&&callMin?button('◉ 语音通话 · 点此返回','callshow','','call-strip'):''}${view==='list'?list():view==='chat'?chat():view==='contacts'?contacts():view==='discover'?discover():view==='moments'?momentsPage():view==='momentDetail'?momentDetail():view==='contactCard'?contactCard():me()}</div><div class="home-indicator"></div>${state.ending&&!review?endScreen():callScreen()}${state.pending||modal?`<div class="modal-backdrop${sheet?' sheet-backdrop':''}"><section class="dialog${sheet?' message-sheet':''}" role="dialog" tabindex="-1" aria-modal="true" aria-label="${state.pending?'行动确认':sheet?'消息操作':'会话选项'}">${dialogContent()}</section></div>`:''}</section>`;
+ app.innerHTML=`${desktopToolbar()}<section class="phone${view==='chat'?' phone-chat':view==='me'||view==='contactCard'?' phone-profile':''}${state.call&&!callMin&&!state.ending?' phone-in-call':''}${albumCover?' phone-moment-album':''}"${albumCover?` data-album-cover="${albumCover}"`:''} aria-label="微讯游戏"><div class="statusbar"><time>${statusTime()}</time><span class="status-icons" aria-hidden="true">${designIcon('signal')}${designIcon('wifi')}${designIcon('battery')}</span></div><div class="screen">${state.call&&callMin?button('◉ 语音通话 · 点此返回','callshow','','call-strip'):''}${view==='list'?list():view==='chat'?chat():view==='contacts'?contacts():view==='discover'?discover():view==='moments'?momentsPage():view==='momentDetail'?momentDetail():view==='contactCard'?contactCard():me()}</div><div class="home-indicator"></div>${state.ending&&!review?endScreen():callScreen()}${state.pending||modal?`<div class="modal-backdrop${sheet?' sheet-backdrop':''}"><section class="dialog${sheet?' message-sheet':''}" role="dialog" tabindex="-1" aria-modal="true" aria-label="${state.pending?'行动确认':sheet?'消息操作':'会话选项'}">${dialogContent()}</section></div>`:''}</section>`;
  if(restoreToolbarFocus)document.querySelector('.desktop-settings')?.focus({preventScroll:true});
  if(view==='chat'){
   const messages=document.querySelector('#messages'),input=document.querySelector('#draft');
@@ -563,9 +620,9 @@ async function send(text=draft,type='text',value=null){
   return;
  }
  cancelReply();
- const activeRoom=room,oldQuote=quote,startIndex=state.messages.length;draft='';quote=null;storeDraft(state,activeRoom,'');
- const next=dispatch(state,{id:crypto.randomUUID(),runId:state.runId,type:'SEND',room:activeRoom,text:text||'[表情]',messageType:type,value});
- if(oldQuote){const own=next.messages.slice(startIndex).find(m=>m.from==='me');if(own)own.quote=short(oldQuote);}
+ const activeRoom=room,oldQuote=quote,startIndex=state.messages.length;draft='';quote=null;if(party)panel=null;storeDraft(state,activeRoom,'');
+ const next=dispatch(state,{id:crypto.randomUUID(),runId:state.runId,type:'SEND',room:activeRoom,text:text||'[表情]',messageType:type,value,quoteId:oldQuote?.id,quote:oldQuote?quoteText(oldQuote):undefined});
+ if(oldQuote&&!party){const own=next.messages.slice(startIndex).find(m=>m.from==='me');if(own)own.quote=short(oldQuote);}
  const staged=stageNpcReply(next,{enabled:ai,type,room:activeRoom,text,startIndex});
  render.bottom=true;commit(staged.state);
  if(!staged.context)return;
@@ -590,11 +647,11 @@ app.addEventListener('scroll',e=>{
   if(pane.matches('.moments-album'))pane.classList.toggle('is-scrolled',pane.scrollTop>32);
  }
 },true);
-app.addEventListener('input',e=>{if(e.target.id==='draft'){draft=e.target.value;const composer=document.querySelector('.composer');const last=composer.lastElementChild;if(draft.trim()&&last.dataset.action!=='send'){last.outerHTML=button('发送','send','','send');}else if(!draft.trim()&&last.dataset.action==='send')last.outerHTML=emptyComposerAction();resizeDraft(e.target);keepDraft();}if(e.target.id==='volume'){volume=Number(e.target.value);soundscape.setLevel('master',volume);}if(e.target.id==='ambience-volume')soundscape.setLevel('ambience',e.target.value);if(e.target.id==='effects-volume')soundscape.setLevel('effects',e.target.value);if(e.target.id==='search'){const term=e.target.value.trim();document.querySelector('#search-results').innerHTML=term?[...backgroundIds.flatMap(roomMessages),...Object.values(priorChats).flat(),...state.messages].filter(m=>short(m).includes(term)).slice(-20).map(m=>button(`<small>${roomTitle(m.room)}</small>${esc(short(m))}`,'searchMessage',`data-mid="${m.id}" data-room="${m.room}"`,'favorite')).join(''):'';}});
+app.addEventListener('input',e=>{if(e.target.id==='draft'){draft=e.target.value;const composer=document.querySelector('.composer');const last=composer.lastElementChild;if(draft.trim()&&last.dataset.action!=='send'){last.outerHTML=button('发送','send','','send');}else if(!draft.trim()&&last.dataset.action==='send')last.outerHTML=emptyComposerAction();resizeDraft(e.target);keepDraft();}if(e.target.id==='volume'){volume=Number(e.target.value);soundscape.setLevel('master',volume);}if(e.target.id==='ambience-volume')soundscape.setLevel('ambience',e.target.value);if(e.target.id==='effects-volume')soundscape.setLevel('effects',e.target.value);if(e.target.id==='search'){const term=e.target.value.trim();document.querySelector('#search-results').innerHTML=term?[...backgroundIds.flatMap(roomMessages),...Object.values(priorChats).flat(),...state.messages].filter(m=>short(m).includes(term)).slice(-20).map(m=>button(`<small>${esc(roomTitle(m.room))}</small>${esc(short(m))}`,'searchMessage',`data-mid="${m.id}" data-room="${m.room}"`,'favorite')).join(''):'';}});
 app.addEventListener('input',e=>{
  if(e.target.id!=='contact-search')return;
  const term=e.target.value.trim().toLocaleLowerCase();
- const matches=term?['lan','lin','zhou',...backgroundIds].filter(id=>{
+ const matches=term?[...npcIds,...backgroundIds].filter(id=>{
   const contact=backgroundContacts[id];
   return [roomTitle(id),contact?.note,contact?.section].some(value=>value?.toLocaleLowerCase().includes(term));
  }):[];
@@ -615,7 +672,7 @@ app.addEventListener('keydown',e=>{if(e.target.id==='draft'&&e.key==='Enter'&&!e
 app.addEventListener('contextmenu',e=>{const bubble=e.target.closest('[data-mid]');if(bubble){e.preventDefault();modal={kind:'message',mid:bubble.dataset.mid};render();}});
 app.addEventListener('click',async e=>{
  const b=e.target.closest('[data-action]');if(!b)return;const a=b.dataset.action,v=b.dataset.value,mid=b.dataset.mid;
- if(state.ending&&['send','suggest','sticker','emoji','newgroup','createGroup','quote','forward','save','location','call','resetCode','openDoor','leave','block'].includes(a)){toast('会话已结束，当前为只读记录。');return;}
+ if(state.ending&&['send','suggest','sticker','emoji','newgroup','createGroup','quote','forward','capture','save','location','call','resetCode','openDoor','leave','block'].includes(a)){toast('会话已结束，当前为只读记录。');return;}
  switch(a){
  case 'skipOpening':finishOpening();return;
  case 'dismissOpeningHint':showOpeningHint=false;break;
@@ -646,9 +703,29 @@ app.addEventListener('click',async e=>{
   desktopSettingsOpen=true;modal={kind:'settings'};render();
   document.querySelector('.dialog')?.focus({preventScroll:true});
   return;
- case 'hint':case 'settings':case 'saves':case 'about':case 'favorites':case 'files':case 'map':case 'lock':case 'search':case 'contactSearch':case 'restartConfirm':case 'debug':modal={kind:a};break;
+ case 'hint':playtest?.mark('打开当前提示',{chapter:state.chapter});modal={kind:'hint'};break;
+ case 'playtest':if(playtest)modal={kind:a};break;
+ case 'exportPlaytest':if(playtest)exportPlaytest(playtest.report());break;
+ case 'settings':case 'saves':case 'about':case 'favorites':case 'files':case 'map':case 'lock':case 'search':case 'contactSearch':case 'restartConfirm':case 'debug':modal={kind:a};break;
  case 'members':modal={kind:a,room:b.dataset.room||room};break;
  case 'newgroup':modal={kind:'newgroup'};break;
+ case 'partyEdit':{
+  const id=b.dataset.room,group=state.groups[id];
+  if(group)modal={kind:'newgroup',edit:id,name:group.name,members:group.members.filter(id=>id!=='me')};break;
+ }
+ case 'partyMember':{
+  modal.name=document.querySelector('#party-group-name').value;
+  const selected=new Set(modal.members??[]);
+  if(selected.has(v))selected.delete(v);else selected.add(v);
+  modal.members=[...selected];break;
+ }
+ case 'partyGroup':{
+  const name=document.querySelector('#party-group-name').value;
+  if((modal.members?.length??0)<2)break;
+  const edit=modal.edit,members=modal.members;
+  sendEvent(edit?{type:'EDIT_GROUP',room:edit,name,members}:{type:'NEW_GROUP',name,members});
+  openChat(edit??state.lastGroup);break;
+ }
  case 'selectGroup':if(newGroupIds.includes(v))modal={kind:'newgroup',group:v};break;
  case 'createGroup':if(newGroupIds.includes(v)){if(!activeGroupIds(state).includes(v))sendEvent({type:'NEW_GROUP',group:v});openChat(v);}break;
  case 'close':closeModal();break;
@@ -662,7 +739,7 @@ app.addEventListener('click',async e=>{
  case 'sticker':panel=null;await send('[表情]','sticker',Number(v));break;
  case 'emoji':panel=null;await send(b.dataset.text);break;
  case 'send':await send();break;
- case 'suggest':draft=b.dataset.text;panel=null;keepDraft();render();document.querySelector('#draft').focus();if(!sessionStorage.getItem('reply-fill-hint')){sessionStorage.setItem('reply-fill-hint','1');toast('已填入输入框，点击“发送”回复。');}return;
+ case 'suggest':playtest?.mark('选用建议回复',{chapter:state.chapter,room});draft=b.dataset.text;panel=null;keepDraft();render();document.querySelector('#draft').focus();if(!sessionStorage.getItem('reply-fill-hint')){sessionStorage.setItem('reply-fill-hint','1');toast('已填入输入框，点击“发送”回复。');}return;
  case 'voiceToggle':{
   if(activeVoice?.id===mid){stopAudio();return;}
   const msg=state.messages.find(x=>x.id===mid);
@@ -686,9 +763,9 @@ app.addEventListener('click',async e=>{
  case 'save':if(isMessageSheet())modal=null;sendEvent({type:'SAVE',messageId:mid});toast('已添加到收藏');break;
  case 'quote':quote=state.messages.find(x=>x.id===mid);keepDraft();modal=null;break;
  case 'unquote':quote=null;keepDraft();break;
- case 'forward':modal={kind:'forward',mid};break;
- case 'target':modal={kind:'forwardConfirm',mid,target:b.dataset.room};break;
- case 'forwardSend':sendEvent({type:'FORWARD',room:b.dataset.room,messageId:mid});modal=null;toast('已发送给 '+rooms[b.dataset.room].name);break;
+ case 'capture':case 'forward':modal={kind:'forward',mid,capture:a==='capture'};break;
+ case 'target':modal={kind:'forwardConfirm',mid,target:b.dataset.room,capture:modal.capture};break;
+ case 'forwardSend':sendEvent({type:modal.capture?'CAPTURE':'FORWARD',room:b.dataset.room,messageId:mid});modal=null;toast('已发送给 '+rooms[b.dataset.room].name);break;
  case 'location':modal={kind:'location'};break;
  case 'sendLocation':case 'shareLocation':{const select=document.querySelector('#location-value');modal={kind:'locationConfirm',value:select.value,label:select.selectedOptions[0].textContent,share:a==='shareLocation'};break;}
  case 'locationSend':sendEvent({type:'LOCATION',room,value:modal.value,share:modal.share});modal=null;render.bottom=true;break;
@@ -709,15 +786,22 @@ app.addEventListener('click',async e=>{
  case 'mute':callAudio.muted=!callAudio.muted;setVoiceOutput(callVolume(),callObserver);break;
  case 'speaker':callAudio.speaker=!callAudio.speaker;setVoiceOutput(callVolume(),callObserver);break;
  case 'resetCode':sendEvent({type:'RESET_CODE',room});toast('门码已作废');break;
- case 'openDoor':modal=null;sendEvent({type:'SEND',room,text:'开门'});break;
- case 'leave':modal=null;sendEvent({type:'SEND',room,text:'出门会合'});break;
+ case 'openDoor':modal=null;sendEvent(party?{type:'REQUEST_ACTION',room,kind:'open'}:{type:'SEND',room,text:'开门'});break;
+ case 'leave':modal=null;sendEvent(party?{type:'REQUEST_ACTION',room,kind:'leave'}:{type:'SEND',room,text:'出门会合'});break;
+ case 'abandon':modal=null;sendEvent({type:'REQUEST_ACTION',room,kind:'abandon'});break;
  case 'confirm':sendEvent({type:'CONFIRM'});break;
  case 'cancel':sendEvent({type:'CANCEL'});break;
- case 'retry':{review=false;const next=retry(state,Number(v));next.statusClockStartedAt=state.statusClockStartedAt;reset(next);return;}
+ case 'retry':{review=false;const next=retry(state,Number(v));next.statusClockStartedAt=state.statusClockStartedAt;reset(next,'从检查点重试');return;}
+ case 'sameSeed':review=false;reset(party?fresh(state.seed,state.case.revision??1):fresh(state.seed));return;
+ case 'seedRestart':{
+  const seed=document.querySelector('#party-seed').value.trim();
+  if(!/^\d{1,10}$/.test(seed)||Number(seed)>0xffffffff){toast('请输入 0 到 4294967295 之间的整数。');return;}
+  review=false;reset(fresh(Number(seed)));return;
+ }
  case 'restart':review=false;reset(fresh());return;
  case 'review':sideHistory.length=0;review=true;view='list';panel=null;draft='';quote=null;break;
  case 'end':review=false;modal=null;break;
- case 'block':sendEvent({type:'BLOCK'});modal=null;break;
+ case 'block':sendEvent({type:'BLOCK',room});modal=null;break;
  case 'searchMessage':if(activeVoice)stopAudio();if(view==='chat'&&room===b.dataset.room)modal=null;else openChat(b.dataset.room);render.jumpTo=mid;break;
  }
  render();

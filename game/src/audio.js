@@ -1,4 +1,6 @@
-import {voices} from './story.js';
+import {voices as legacyVoices} from './story.js';
+import {partyVoices} from './party-story.js';
+const voices={...legacyVoices,...partyVoices};
 export function soundEvents(before,next){
  if(before.runId!==next.runId)return [];
  const events=[];

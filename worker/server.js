@@ -1,5 +1,6 @@
 import assets from './assets.generated.js';
 import {generateNpc} from './provider.js';
+import {validPartyContext} from '../game/src/party-dialogue.js';
 const enc=new TextEncoder();
 const json=(data,status=200,headers={})=>Response.json(data,{status,headers:{'Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...headers}});
 const base64url=bytes=>btoa(String.fromCharCode(...new Uint8Array(bytes))).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
@@ -60,7 +61,7 @@ export function createWorker({generate=generateNpc,now=()=>Date.now()}={}){retur
   if(Number(request.headers.get('Content-Length')||0)>65000)return json({mode:'fallback',reason:'消息过长'},413);
   const raw=await request.text();if(enc.encode(raw).length>65000)return json({mode:'fallback',reason:'消息过长'},413);
   const data=JSON.parse(raw),context=data.context;
-  if(!context||!['lan','zhou','lin'].includes(context.character)||context.scope!=='social-expression-only'||!Array.isArray(context.dialogue)||!Array.isArray(context.allowedMemoryIds))return json({mode:'fallback',reason:'消息格式不正确'},400);
+  if(!(validPartyContext(context)||(context&&['lan','zhou','lin'].includes(context.character)&&context.scope==='social-expression-only'&&Array.isArray(context.dialogue)&&Array.isArray(context.allowedMemoryIds))))return json({mode:'fallback',reason:'消息格式不正确'},400);
   const reason=await quota(env,session.id,request,time);if(reason)return json({mode:'fallback',reason},429);
   ctx?.waitUntil?.(env.DB.prepare('DELETE FROM usage_counters WHERE expires_at < ?').bind(time).run());
   return json(await generate(context,{key:env.NPC_API_KEY,signal:request.signal}));

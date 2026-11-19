@@ -8,7 +8,7 @@ const add=async(route,file,type)=>{
 await add('/','game/index.html','text/html; charset=utf-8');entries['/index.html']=entries['/'];
 await add('/assets/opening.mp4','game/assets/opening.mp4','video/mp4');
 for(const file of await readdir('game/src'))if(/\.(js|css)$/.test(file))await add('/src/'+file,'game/src/'+file,file.endsWith('.js')?'text/javascript; charset=utf-8':'text/css; charset=utf-8');
-for(const [route,file] of Object.entries(JSON.parse(await readFile('game/audio-map.json','utf8'))))await add(route,file,'audio/mp4');
+for(const [route,file] of Object.entries(JSON.parse(await readFile('game/audio-map.json','utf8'))))await add(route,file,file.endsWith('.wav')?'audio/wav':'audio/mp4');
 for(const folder of ['contacts','moments','weixun']){
  for(const file of await readdir('game/assets/'+folder)){
   const type={png:'image/png',svg:'image/svg+xml',jpg:'image/jpeg'}[file.split('.').pop()];
