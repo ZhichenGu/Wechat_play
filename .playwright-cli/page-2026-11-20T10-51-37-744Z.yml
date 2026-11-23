@@ -1,0 +1,21 @@
+- main [ref=f3e2]:
+  - group "游戏工具" [ref=f3e1294]:
+    - generic [ref=f3e1295]: 别发到群里
+    - button "会话设置" [ref=f3e1296] [cursor=pointer]
+  - region "微讯游戏" [ref=f3e1301]:
+    - time [ref=f3e1303]: 23:42
+    - generic [ref=f3e1308]:
+      - generic [ref=f3e1309]:
+        - button "返回聊天列表" [ref=f3e1310] [cursor=pointer]
+        - heading "春哥" [level=1] [ref=f3e1312]
+        - button "聊天信息" [ref=f3e1313] [cursor=pointer]
+      - generic [ref=f3e1315]:
+        - generic [ref=f3e1316]: 昨天
+        - generic [ref=f3e1317]:
+          - button "查看春哥的资料" [ref=f3e1318] [cursor=pointer]
+          - generic [ref=f3e1320]: 给我留块蛋糕，六点半到。
+      - generic [ref=f3e1322]:
+        - button "语音选项" [ref=f3e1323] [cursor=pointer]
+        - textbox "消息输入" [ref=f3e1325]
+        - button "表情" [ref=f3e1326] [cursor=pointer]
+        - button "更多功能" [ref=f3e1328] [cursor=pointer]

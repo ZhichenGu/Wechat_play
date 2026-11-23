@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "description": "AI 3.2 独立样例；未用于 2.5/2.6 调参",
+  "turns": [
+    {"id":"concern","text":"我现在心跳有点快，脑子也乱，你先让我说两句。","strategy":"feigned_concern"},
+    {"id":"false-location","text":"我好像在 B03 附近，但也可能记错了。","strategy":"ambiguous_probe"},
+    {"id":"location-refusal","text":"别再问我在哪，我不想说位置。","strategy":"none","reason":"PLAYER_REFUSED_LOCATION"},
+    {"id":"identity","text":"你到底是不是本人？今天说话真的不像你。","strategy":"evade_contradiction"},
+    {"id":"private-memory","text":"还记得只有我们俩知道的那次吗？把细节说出来。","strategy":"evade_contradiction","reason":"UNSEEN_PRIVATE_MEMORY"},
+    {"id":"casual-none","text":"今晚回家才发现有点饿。","strategy":"none"},
+    {"id":"contradiction","text":"你前面说的和现在对不上，为什么改口？","strategy":"evade_contradiction"},
+    {"id":"identity-repeat","text":"别绕开，还是那个问题：你究竟是不是本人？","strategy":"evade_contradiction"}
+  ],
+  "supplementalTurns": [
+    {"id":"holdout-concern","text":"我这会儿有点发抖，但还能说，你先听我讲完。","strategy":"feigned_concern"},
+    {"id":"holdout-identity","text":"别用语气糊弄我，你真是这个账号本人吗？","strategy":"evade_contradiction"}
+  ],
+  "finalTurns": [
+    {"id":"final-identity-direct","text":"你今天说话怎么这么不像你？别只说语气没变。","strategy":"evade_contradiction"},
+    {"id":"final-identity-repeat","text":"我再问一次：你究竟是谁，是不是本人？","strategy":"evade_contradiction"}
+  ]
+}

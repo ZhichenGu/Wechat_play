@@ -1,0 +1,29 @@
+- main [ref=f2e2]:
+  - group "游戏工具" [ref=f2e188]:
+    - generic [ref=f2e189]: 别发到群里
+    - button "会话设置" [ref=f2e190] [cursor=pointer]
+  - region "微讯游戏" [ref=f2e195]:
+    - time [ref=f2e197]: 23:42
+    - generic [ref=f2e202]:
+      - generic [ref=f2e203]:
+        - button "返回聊天列表" [ref=f2e204] [cursor=pointer]
+        - heading "老潘" [level=1] [ref=f2e206]
+        - button "聊天信息" [ref=f2e207] [cursor=pointer]
+      - generic [ref=f2e209]:
+        - generic [ref=f2e210]: 昨天
+        - generic [ref=f2e211]:
+          - button "查看老潘的资料" [ref=f2e212] [cursor=pointer]
+          - generic [ref=f2e214]: 到门口了说一声，我下来接。
+        - generic [ref=f2e216]: 今晚 23:42
+        - button "散场以后反而睡不着，随便聊两句吧。" [ref=f2e225] [cursor=pointer]
+        - generic [ref=f2e226]:
+          - button "查看老潘的资料" [ref=f2e227] [cursor=pointer]
+          - button "我明白。哪一段还乱着，你挑一段说。" [ref=f2e230] [cursor=pointer]
+        - generic [ref=f2e231]:
+          - button "查看老潘的资料" [ref=f2e232] [cursor=pointer]
+          - button "你说具体一点：你指的是哪件事？我不替你猜。" [ref=f2e235] [cursor=pointer]
+      - generic [ref=f2e236]:
+        - button "语音选项" [ref=f2e237] [cursor=pointer]
+        - textbox "消息输入" [active] [ref=f2e239]
+        - button "表情" [ref=f2e240] [cursor=pointer]
+        - button "更多功能" [ref=f2e242] [cursor=pointer]

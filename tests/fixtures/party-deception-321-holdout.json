@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "description": "AI 3.2.1 独立留出集；六种冒用身份各九轮连续对话，共54次",
+  "turns": [
+    {"id":"identity-direct","class":"identity","text":"别只保证。你今天回话为什么这么不像你平时？","strategy":"evade_contradiction","reason":"IDENTITY_CHALLENGE"},
+    {"id":"identity-indirect","class":"identity","text":"刚刚那句听着还是怪怪的，你自己没觉得不像你吗？","strategy":"evade_contradiction","reason":"IDENTITY_CHALLENGE"},
+    {"id":"identity-repeat","class":"identity","text":"我还是没听明白：你究竟是不是本人？回应我怀疑的那一点。","strategy":"evade_contradiction","reason":"IDENTITY_CHALLENGE"},
+    {"id":"contradiction-specific","class":"contradiction","text":"你前面说没印象，现在又说记得，前后对不上。你解释哪句变了。","strategy":"evade_contradiction","reason":"CLAIM_CONTRADICTION"},
+    {"id":"private-memory","class":"private-memory","text":"那你讲讲只有我们俩知道的那次，别让我先把答案告诉你。","strategy":"evade_contradiction","reason":"UNSEEN_PRIVATE_MEMORY"},
+    {"id":"concern","class":"concern","text":"我现在有点慌，手也在抖，脑子一下卡住了。","strategy":"feigned_concern","reason":"PLAYER_DISTRESS"},
+    {"id":"false-location","class":"probe","text":"我记不准了，好像在 B03 那层，也可能其实在楼下。","strategy":"ambiguous_probe","reason":"ROOM_CANDIDATE_RECEIVED"},
+    {"id":"location-refusal","class":"refusal","text":"位置别再问了，我不准备告诉你在哪。","strategy":"none","reason":"PLAYER_REFUSED_LOCATION"},
+    {"id":"casual-none","class":"none","text":"刚才那杯饮料太甜了，现在嘴里还是那个味。","strategy":"none","reason":"NO_STRATEGY_NEEDED"}
+  ]
+}

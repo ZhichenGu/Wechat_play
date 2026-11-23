@@ -1,0 +1,10 @@
+- main [ref=e2]:
+  - region "故事开场" [ref=e3]:
+    - generic [ref=e4]:
+      - generic:
+        - paragraph [ref=e6]: 周六 23:42生日聚会刚散场。
+        - paragraph [ref=e7]: 你回楼上取充电器。楼梯口有人反复喊你的名字。
+        - paragraph [ref=e8]:
+          - text: 你退进 B03，反锁了门。手机亮了。
+          - strong [ref=e9]: 「你在哪间？我上来接你。」
+    - button "跳过开场" [ref=e10] [cursor=pointer]: 跳过

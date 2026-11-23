@@ -2,6 +2,10 @@ import {PARTY_VERSION,STORY_REVISION,VEHICLE,ids,cast,exits,partyRooms,randomSee
 
 import {classify,routeOf,disclosedRoute} from './party-intents.js';
 import {roomCluesFor,roomReceipt} from './party-location.js';
+import {reviewCandidateIntents} from './party-ai.js';
+import {partyFallbackReply} from './party-personality.js';
+import {partyEmotionState} from './party-emotion.js';
+import {buildDeceptionView,deceptionMetadata,selectDeceptionPolicy} from './party-deception.js';
 
 const copy = structuredClone;
 const name = id=>cast[id]?.name;
@@ -359,6 +363,12 @@ function fixedReply(s,room,who,text,kind){
  }
  if(kind==='caution'){publish(s,room,who,'先别动门锁。等确认了再说。');return;}
  if(kind==='hold'){publish(s,room,who,'好，先等你确认。');return;}
+ if(kind==='clarify'){
+  const topic={record:'哪一份记录或文件',status:'你想问谁的状态',inspect:'要查哪扇门或哪条通道',action:'你希望我做哪一步',object:'你指的是哪件事'}[text]??'你指的是哪件事';
+  const line={lan:`你说具体一点：${topic}？我不替你猜。`,lin:`等下，${topic}？你说明白我再动。`,zhou:`先对清楚，${topic}？别靠猜的。`,
+   wei:`我怕理解岔了，${topic}？`,rui:`我先不乱接话。${topic}？`,yi:`说准一点：${topic}？我按你确认的来。`}[who];
+  publish(s,room,who,line);return;
+ }
  if(kind==='relay'){
   const contact=!inGroup&&trusted&&s.flags.identity&&who===c.lead&&c.danger==='zhou'?'先私聊正义，让他在车边找老金。':'请直接私聊对方，或拉进你确认过的会合群。';
   publish(s,room,who,`我没有替你发。${contact}`);return;
@@ -466,14 +476,24 @@ function fixedReply(s,room,who,text,kind){
  if(kind==='pickup'&&trusted&&who===c.driver){
   publish(s,room,who,'我先在车边等。等你们出楼，再确认接应。');return;
  }
- const normal={lan:'好，我先数一下人。',lin:'行，等我把手里东西放一下。',zhou:'收到。要接几个人告诉我。',wei:'好。最后都报一下平安。',rui:'我看到消息了，等我翻一下。',yi:'行，我先看看。'};
- const social=kind==='chat'&&s.chapter>0&&(room!=='old'&&(who!==c.danger||room===c.danger));
- const life=who==='wei'&&/蛋糕/.test(text)?'先别惦记蛋糕了。等人齐了，再分剩下的。'
+ const social=kind==='chat'&&(room!=='old'&&(who!==c.danger||room===c.danger));
+ const life=s.chapter>0?(who==='wei'&&/蛋糕/.test(text)?'先别惦记蛋糕了。等人齐了，再分剩下的。'
   :who==='rui'&&/合照/.test(text)?'原图我留着。等都回去我再发，缺谁都不行。'
-  :who==='lin'&&/充电|线/.test(text)?'我的黑线还在。你那根等人齐再找，别折回去。':null;
- const line=who===c.danger&&s.chapter>0?'刚才信号不好。具体在哪儿？':
-  life??(/怕|紧张|慌/.test(text)?'慢慢说，我在看。':s.chapter>=2?'收到。我们先顾眼前这件事，到齐再慢慢聊。':normal[who]);
+  :who==='lin'&&/充电|线/.test(text)?'我的黑线还在。你那根等人齐再找，别折回去。':null):null;
+ const recentTexts=s.messages.filter(message=>message.room===room&&message.from===who&&message.type==='text').slice(-6).map(message=>message.text);
+ const line=life??partyFallbackReply(who,{text,emotion:partyEmotionState(s,who),controller:s.accounts[who].controller,recentTexts});
  publish(s,room,who,line,'text',null,{social:social&&!life});
+}
+
+function shadowDeceptionDecision(s,playerMessage,responseStart){
+ const danger=s.case.danger;
+ if(!playerMessage.deliveredTo?.includes(danger))return;
+ const view=buildDeceptionView(s,{accountId:danger,room:playerMessage.room,messageId:playerMessage.id});
+ if(!view)return;
+ const decision=selectDeceptionPolicy(view);
+ const response=s.messages.slice(responseStart).findLast(message=>message.room===playerMessage.room&&message.from===danger&&message.type==='text');
+ if(!response)return;
+ response.ai={...response.ai,deception:deceptionMetadata(view,decision)};
 }
 
 function refreshShares(s){
@@ -504,18 +524,30 @@ export function dispatchParty(input,e){
   const cleaned=stripMention(s,room,text);
   const kind=classify(cleaned);
   const m=publish(s,room,'me',text,e.messageType||'text',e.value,{quote:e.quote,quotedContent,quoteSource:quoted?.id},{quoted,playerText:cleaned});
+  const responseStart=s.messages.length;
   if(m.deliveredTo.includes(c.danger)){
    leakRoute(s,disclosedRoute(cleaned),m.id);
    if(quotedContent)leakRoute(s,disclosedRoute(quotedContent)??(quoted?.type==='location'?routeOf(quotedContent):null),m.id);
   }
   const selected=speaker(s,room,text);
   if(e.messageType==='sticker'){if(selected)publish(s,room,selected,s.chapter&&selected===c.danger?'我也收到了。':'收到你的表情。');break;}
-  const role=['curb','pickup'].includes(kind)?c.driver:['verify','inspect','advance'].includes(kind)?c.lead:kind==='record'&&s.chapter===1?c.source:null;
-  const who=role&&!text.startsWith('@')&&m.deliveredTo.includes(role)?role:selected;
+  const choose=(intent,target=null)=>{
+   const role=['curb','pickup'].includes(intent)?c.driver:['verify','inspect','advance'].includes(intent)?c.lead:intent==='record'&&s.chapter===1?c.source:null;
+   if(target&&m.deliveredTo.includes(target))return target;
+   return role&&!text.startsWith('@')&&m.deliveredTo.includes(role)?role:selected;
+  };
+  const who=choose(kind);
+  const currentInterpretation=e.intentRevision===input.seq&&e.intentEventCount===input.events.length;
+  const currentCandidates=currentInterpretation?e.intentCandidates:[],currentDialogue=currentInterpretation?e.intentDialogue:[];
+  const reviewed=reviewCandidateIntents(cleaned,kind,currentCandidates,m.deliveredTo,currentDialogue);
+  const extra=reviewed.accepted;
   if(kind==='help')s.events.at(-1).askedHelp=true;
   s.flags.normal=true;
   if(kind==='route'||kind==='decoy')setRoute(s,room,routeOf(cleaned),m,kind==='decoy');
-  else fixedReply(s,room,who,cleaned,kind);
+  else if(kind!=='chat'||!extra.length)fixedReply(s,room,who,cleaned,kind);
+  for(const candidate of extra)fixedReply(s,room,choose(candidate.intent,candidate.target),cleaned,candidate.intent);
+  if(reviewed.clarification)fixedReply(s,room,choose('clarify',reviewed.clarification.target),reviewed.clarification.topic,'clarify');
+  shadowDeceptionDecision(s,m,responseStart);
   break;
  }
  case 'CAPTURE':

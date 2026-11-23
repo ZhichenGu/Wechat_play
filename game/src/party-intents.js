@@ -14,7 +14,7 @@ export function classify(text){
  if(/(?:没(?:有)?说|没(?:有)?告诉|没在说).{0,14}[ＢB]\s*[０0]?\s*[３3]|你怎么知道.{0,8}(?:房号|我在哪)/i.test(text))return 'locationChallenge';
  if(/(?:开门|出门|出去了|作废).{0,8}(?:吗|[？?])|(?:别|不要|要不要|能不能|还没确认|如果).{0,9}(?:开门|出门|放人)|(?:开门|出门).{0,10}还没确认|[「」“”"'>].*(?:开门|出门)/.test(text))return 'caution';
  if(/先别动|先等等|先停一下|我再确认一下/.test(text))return 'hold';
- if(accountClaim.test(text))return 'reported';
+ if(accountClaim.test(text)&&!/(?:可能|也许|好像|记不清|如果|假如)/.test(text))return 'reported';
  if(relay.test(text)&&!quoted.test(text)&&!negative.test(text))return 'relay';
  if(/^(?:救命|求助|帮帮我|我该怎么办|给个提示|有什么提示)[？?！!。]?$/.test(text))return 'help';
  if(/^(作废|重置)(临时)?(门码|访客码)$/.test(text))return 'reset';

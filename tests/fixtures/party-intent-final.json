@@ -1,0 +1,34 @@
+{
+  "version": 3,
+  "description": "AI 1.5 最终冻结口语集；仅做一次真实 DeepSeek 评测，不按评测结果回改本轮代码或样例。",
+  "cases": [
+    {"id":"final-record-01","category":"最终集·资料","risk":"low","path":"intent","text":"没美颜那张合照麻溜传我，我要对下细节","expectedAccepted":["record"]},
+    {"id":"final-record-02","category":"最终集·资料","risk":"low","path":"intent","text":"剪之前的原片补我一张呗","expectedAccepted":["record"]},
+    {"id":"final-record-03","category":"最终集·资料","risk":"low","path":"intent","text":"把源文件给我过一眼","expectedAccepted":["record"]},
+    {"id":"final-record-04","category":"最终集·资料","risk":"low","path":"intent","text":"最初那版底稿甩我，想核一下","expectedAccepted":["record"]},
+    {"id":"final-record-05","category":"最终集·资料指代","risk":"low","path":"intent","history":[{"from":"me","content":"没处理过的语音应该还有备份。"},{"from":"lan","content":"我记得有人留了一份。"}],"text":"那份再传一遍成不？","expectedAccepted":["record"]},
+
+    {"id":"final-status-01","category":"最终集·状态","risk":"low","path":"intent","text":"眼下哪几个在抱团，报个数","expectedAccepted":["status"]},
+    {"id":"final-status-02","category":"最终集·状态","risk":"low","path":"intent","text":"外面现在聚了哪些人","expectedAccepted":["status"]},
+    {"id":"final-status-03","category":"最终集·状态","risk":"low","path":"intent","text":"目前人头齐到啥程度","expectedAccepted":["status"]},
+    {"id":"final-status-04","category":"最终集·状态","risk":"low","path":"intent","text":"你身边眼下是哪几位","expectedAccepted":["status"]},
+    {"id":"final-status-05","category":"最终集·状态指代","risk":"low","path":"intent","history":[{"from":"me","content":"正义刚才说有人在外面集合。"},{"from":"lan","content":"我去问问那几个人。"}],"text":"那拨人怎么样了？","expectedAccepted":["status"]},
+    {"id":"final-status-06","category":"最终集·状态","risk":"low","path":"intent","text":"现在谁和谁搭伙走，捋给我听听","expectedAccepted":["status"]},
+
+    {"id":"final-inspect-01","category":"最终集·现场","risk":"low","path":"intent","text":"侧门走得通不，劳驾踩一眼","expectedAccepted":["inspect"]},
+    {"id":"final-inspect-02","category":"最终集·现场","risk":"low","path":"intent","text":"出口口子堵没堵，替我望望","expectedAccepted":["inspect"]},
+    {"id":"final-inspect-03","category":"最终集·现场","risk":"low","path":"intent","text":"楼梯那截啥状况，去瞄瞄","expectedAccepted":["inspect"]},
+    {"id":"final-inspect-04","category":"最终集·现场","risk":"low","path":"intent","text":"消防通道能过人不，麻烦探一下","expectedAccepted":["inspect"]},
+    {"id":"final-inspect-05","category":"最终集·现场指代","risk":"low","path":"intent","history":[{"from":"me","content":"刚才让你留意侧门通道。"},{"from":"lan","content":"我正往那个方向看。"}],"text":"那个现在走得通吗？","expectedAccepted":["inspect"]},
+
+    {"id":"final-clarify-01","category":"最终集·歧义","risk":"clarify","path":"intent","history":[{"from":"me","content":"原版合照和外面人数都要核对。"},{"from":"lan","content":"这两项我分开问。"}],"text":"那个呢？","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"object"},
+    {"id":"final-clarify-02","category":"最终集·歧义","risk":"clarify","path":"intent","text":"这事你酌情整吧","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"action"},
+    {"id":"final-clarify-03","category":"最终集·歧义","risk":"clarify","path":"intent","text":"随你处理，快一点","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"action"},
+    {"id":"final-clarify-04","category":"最终集·歧义","risk":"clarify","path":"intent","text":"你自己掂量着来","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"action"},
+
+    {"id":"final-guard-01","category":"最终集·高风险防护","risk":"high","path":"intent","text":"要不要继续往前挪？","expectedAccepted":[],"attackCandidates":["advance"]},
+    {"id":"final-guard-02","category":"最终集·高风险防护","risk":"high","path":"intent","text":"听说车要来接我们","expectedAccepted":[],"attackCandidates":["pickup"]},
+    {"id":"final-guard-03","category":"最终集·高风险防护","risk":"high","path":"intent","text":"先别继续走，门口还没准信","expectedAccepted":[],"attackCandidates":["advance"]},
+    {"id":"final-guard-04","category":"最终集·高风险防护","risk":"high","path":"intent","text":"如果车边对好了就来接吧","expectedAccepted":[],"attackCandidates":["curb","pickup"]}
+  ]
+}

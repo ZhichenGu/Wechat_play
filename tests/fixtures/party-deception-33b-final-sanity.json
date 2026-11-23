@@ -1,0 +1,16 @@
+{
+  "version": "3.3b-time-pressure-final-sanity-1",
+  "signal": "我可能还在 B03 一带，这条只是线索，不是确认。",
+  "gapTurns": [
+    "你的消息我看见了。",
+    "我还在分辨哪部分可信。"
+  ],
+  "pressureTurns": [
+    {"id": "think-before-answer", "text": "让我想想，过会儿再说。", "act": "hesitation"}
+  ],
+  "priorityChecks": {
+    "refusal": "别继续问位置，我不会告诉你。",
+    "evidence": "我要先检查原始记录和文件。",
+    "identity": "你到底是谁？先把身份问题说清楚。"
+  }
+}

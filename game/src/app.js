@@ -1,17 +1,21 @@
-import {PARTY_PLAYTEST_BUILD} from './party-story.js';
+import {PARTY_AI_BUILD,PARTY_PLAYTEST_BUILD} from './party-story.js';
 import {fresh,dispatch,retry,objective,rooms,people,files,voices,stickers,stickerFaces,endings,newGroupIds,activeGroupIds,isMixedGroup,load,save,
- stageNpcReply,settleNpcReply,albumCovers,moments,profiles,priorChats,party,npcIds,partyLink,hasLegacy,syncCatalog} from './session.js';
+ stageNpcReply,settleNpcReply,buildIntentContext,shouldInterpretMessage,albumCovers,moments,profiles,priorChats,party,npcIds,partyLink,hasLegacy,syncCatalog} from './session.js';
 import {createPlaytest,exportPlaytest} from './party-playtest.js';
 import {partySuggestions} from './party-engine.js';
 import {backgroundContacts,backgroundHistory,sendBackgroundMessage} from './background-contacts.js';
 import {unreadCount,markRead,storeDraft,statusClockTime} from './chat-ui.js';
-import {npcReply} from './ai.js';
+import {clearNpcApiKey,hasNpcApiKey,npcApiStatus,npcReply,npcIntent,setNpcApiKey} from './ai.js';
+import {replyTimeoutConfig,startReplyRequest} from './reply-timeout.js';
 import {playVoice,stopAudio,playPreview,setVoiceOutput,soundscape} from './audio.js';
-let state=load()||fresh(),view='list',room='lan',panel=null,modal=null,draft='',quote=null,volume=soundscape.prefs.master,ai=localStorage.getItem('alan-ai-enabled')!=='false',epoch=0,controller=null,callMin=false,toastTimer;
+let state=load()||fresh(),view='list',room='lan',panel=null,modal=null,draft='',quote=null,volume=soundscape.prefs.master,ai=localStorage.getItem('alan-ai-enabled')!=='false',apiStatus=null,epoch=0,controller=null,callMin=false,toastTimer;
+const apiConnectedText='AI 接口已连接，日常聊天可使用自然回复；关键剧情由游戏规则控制。';
 const app=document.querySelector('#app');
 syncCatalog(state);
-const playtest=party&&new URLSearchParams(location.search).has('playtest')?createPlaytest(localStorage):null;
+const query=new URLSearchParams(location.search),playtestEnabled=party&&query.has('playtest'),research=playtestEnabled&&query.has('research');
+const playtest=playtestEnabled?createPlaytest(localStorage):null;
 if(playtest)playtest.attach(state);
+if(playtest)npcApiStatus().then(status=>{apiStatus=ai&&status.configured?'api-configured':'local-fallback';playtest.setMode(apiStatus);}).catch(()=>{apiStatus='local-fallback';playtest.setMode(apiStatus);});
 const backgroundIds=Object.keys(backgroundContacts);
 const isBackground=id=>Object.hasOwn(backgroundContacts,id);
 const roomTitle=id=>rooms[id]?.name??people[id]?.name??backgroundContacts[id]?.name??'系统';
@@ -86,7 +90,7 @@ function readVisibleChat(messages=document.querySelector('#messages')){
 }
 function toast(text){document.querySelector('.toast')?.remove();const el=document.createElement('div');el.className='toast';el.textContent=text;document.body.append(el);clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.remove(),2600);}
 function closeModal(){const copied=modal?.kind==='message'&&state.messages.find(m=>m.id===modal.mid)?.value==='copy';if(modal?.kind==='settings'||(activeVoice&&modal?.mid===activeVoice.id))stopAudio();modal=null;if(copied)reviewCopiedVoice();}
-function reset(next,source='新开局'){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;syncCatalog(state);playtest?.start(state,source);modal=null;panel=null;draft='';quote=null;callMin=false;showOpeningHint=false;view='list';saveState();render();}
+function reset(next,source='新开局'){sideHistory.length=0;for(const key of Object.keys(scrollPositions))delete scrollPositions[key];if(state.replyInFlight)playtest?.markAi({mode:'cancelled'},0,{status:'discarded',guardStatus:'RESET_OR_ROLLBACK'});epoch++;controller?.abort();stopAudio();soundscape.reset(next);state=next;syncCatalog(state);playtest?.start(state,source);if(playtest&&apiStatus)playtest.setMode(apiStatus);modal=null;panel=null;draft='';quote=null;callMin=false;showOpeningHint=false;view='list';saveState();render();}
 function finishOpening(){
  if(state.flags.welcomed)return;
  state.flags.welcomed=true;
@@ -511,18 +515,20 @@ function dialogContent(){
  }
  if(m.kind==='lock')return `<h2>B03 · 内侧门锁</h2><p>${state.exited?'你已离开房间。':'门已反锁。外侧需要有效临时门码或内侧开门。'}</p><p>临时门码：${state.codeValid?'有效':'已作废'}</p>${button('作废临时门码','resetCode','','wide')}${button('允许门外的人进入','openDoor','','wide danger')}${button('离开房间去会合','leave','','wide')}${button('返回','close','','wide')}`;
  if(m.kind==='saves')return `<h2>会话存档</h2><p class="muted">当前位置自动保存。重试会回滚此后的消息、知识和行动。</p>${state.checkpoints.map((cp,i)=>button(cp.label,'retry',`data-value="${i}"`,'wide')).join('')||'<p>还没有到达检查点。</p>'}${button('重新开始','restartConfirm','','wide danger')}
- ${playtest?button('本地试玩记录','playtest','','wide'):''}
- ${party?`<p>Seed ${state.seed}</p>${hasLegacy()?`<a href="${partyLink}">继续旧版撤场存档</a>`:''}`:`<a href="${partyLink}">开始新版生日散场</a>`}${button('返回','close','','wide')}`;
- if(party&&m.kind==='restartConfirm')return `<h2>开始一局生日散场</h2><p>本版当前会话会替换。Seed 可用于重现初始局面。</p>
+ ${research?button('本地试玩记录','playtest','','wide'):''}
+ ${party?`${playtest?'':`<p>Seed ${state.seed}</p>`}${hasLegacy()?`<a href="${partyLink}">继续旧版撤场存档</a>`:''}`:`<a href="${partyLink}">开始新版生日散场</a>`}${button('返回','close','','wide')}`;
+ if(party&&m.kind==='restartConfirm')return playtest
+  ?`<h2>开始一局生日散场</h2><p>当前会话会被替换。${research?'请先导出本局记录。':'如需保留记录，请先交给主持人。'}</p>${button('重玩相同局面','sameSeed','','wide')}${button('开始另一局','restart','','wide danger')}${button('取消','close','','wide')}`
+  :`<h2>开始一局生日散场</h2><p>本版当前会话会替换。Seed 可用于重现初始局面。</p>
  <label class="field">Seed<input id="party-seed" class="search-field" inputmode="numeric" maxlength="10" placeholder="${state.seed}"></label>
  ${button('使用输入的 Seed','seedRestart','','wide')}${button('同 Seed 重玩','sameSeed','','wide')}${button('重新随机','restart','','wide danger')}${button('取消','close','','wide')}`;
  if(m.kind==='restartConfirm')return `<h2>重新开始本次会话？</h2><p>当前进度会被新局替换。</p>${button('重新开始','restart','','wide danger')}${button('取消','close','','wide')}`;
- if(m.kind==='playtest'&&playtest){
+ if(m.kind==='playtest'&&research&&playtest){
   const data=playtest.report();
-  return `<h2>本地试玩记录</h2><p>${esc(data.build)} · Seed ${data.seed} · 剧情修订 ${data.storyRevision}</p><p>开始于 ${esc(new Date(data.startedAt).toLocaleString('zh-CN'))}，已记录 ${data.timeline.length} 个操作或事件。</p>
+  return `<h2>本地试玩记录</h2><p>${esc(data.build)} · AI ${esc(data.aiBuild??PARTY_AI_BUILD)} · 剧情修订 ${data.storyRevision}</p><p>开始于 ${esc(new Date(data.startedAt).toLocaleString('zh-CN'))}，已记录 ${data.timeline.length} 个操作或事件。</p>
    ${button('导出 JSON','exportPlaytest','','primary wide')}${button('返回存档','saves','','wide')}`;
  }
- if(m.kind==='settings')return `<h2>会话设置 · 已暂停</h2><p class="muted">阅读和暂停都不会推进危险。语音均有完整字幕。</p>${button(soundscape.enabled?'关闭氛围声音':'开启氛围声音','sound',`aria-pressed="${soundscape.enabled}"`,'wide')}<label class="field">总音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label class="field">环境底噪 <input id="ambience-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.ambience}"></label><label class="field">事件音效 <input id="effects-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.effects}"></label><p class="muted">设置中暂停环境声，语音播放时背景自动降低。</p>${button('试听声音（30秒）','soundPreview','','wide')}${button('存档与重试','saves','','wide')}<label class="field checkbox-field"><input id="ai" type="checkbox" ${ai?'checked':''}>角色自然对话</label><p class="muted" id="api-status">开启时由角色自然回复；网络不可用或次数用完会自动使用本地回复。</p>${button('继续会话','close','','primary wide')}`;
+ if(m.kind==='settings')return `<h2>会话设置 · 已暂停</h2><p class="muted">阅读和暂停都不会推进危险。语音均有完整字幕。</p>${button(soundscape.enabled?'关闭氛围声音':'开启氛围声音','sound',`aria-pressed="${soundscape.enabled}"`,'wide')}<label class="field">总音量 <input id="volume" type="range" min="0" max="1" step=".05" value="${volume}"></label><label class="field">环境底噪 <input id="ambience-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.ambience}"></label><label class="field">事件音效 <input id="effects-volume" type="range" min="0" max="1" step=".05" value="${soundscape.prefs.effects}"></label><p class="muted">设置中暂停环境声，语音播放时背景自动降低。</p>${button('试听声音（30秒）','soundPreview','','wide')}${button('存档与重试','saves','','wide')}<label class="field checkbox-field"><input id="ai" type="checkbox" ${ai?'checked':''}>角色自然对话</label><p class="muted" id="api-status">${apiStatus==='api-configured'?apiConnectedText:apiStatus==='local-fallback'?'当前使用本地回复，仍可完整游玩。':'正在确认自然对话状态……'}</p>${research?`<section class="host-api-settings"><h3>主持人设置</h3><label class="field">DeepSeek API Key<input id="npc-api-key" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${hasNpcApiKey()?'本次浏览器会话已配置':'输入后仅用于本次浏览器会话'}"></label><p class="muted">Key 不写入游戏存档、试玩记录、服务器数据库或仓库；关闭浏览器会话后清除。请勿让试玩者查看此页。</p>${button(hasNpcApiKey()?'替换本次会话 Key':'启用自然对话','saveNpcApiKey','','wide')}${hasNpcApiKey()?`${button('进入普通试玩界面','enterPlaytest','','primary wide')}${button('清除本次会话 Key','clearNpcApiKey','','wide danger')}`:''}</section>`:''}${button('继续会话','close','','primary wide')}`;
  if(m.kind==='debug')return `<h2>事件与规则状态</h2><pre>${esc(JSON.stringify({...state,messages:state.messages.length,checkpoints:state.checkpoints.map(x=>x.label)},null,2))}</pre>${button('返回','close','','wide')}`;
  if(m.kind==='roomSearch')return chatRecordDialog(m);
  if(m.kind==='momentPhoto'){const post=moments.find(post=>post.id===m.post);return `<h2>${photoLabels[post.photo]}</h2>${momentPhoto(post,true)}${button('关闭','close','','wide')}`;}
@@ -559,10 +565,10 @@ function partyResult(){
  const c=state.case;
  const whereabouts=npcIds.map(id=>`${people[id].name} · ${esc(state.people[id].place)}${state.missing.includes(id)?'（未会合）':''}`).join('<br>');
  const nodes=state.nodes.map(node=>`<li>${esc(node.text)}</li>`).join('');
- return `<p>Seed <b>${state.seed}</b> · 被冒用账号 <b>${people[c.danger].name}</b></p>
+ return `${playtest?'<p>本局答案已写入研究记录，试玩界面不显示。</p>':`<p>Seed <b>${state.seed}</b> · 被冒用账号 <b>${people[c.danger].name}</b></p>`}
  <details><summary>查看人物去向与关键节点</summary><p>${whereabouts}</p>${nodes?`<ul>${nodes}</ul>`:'<p>没有记录到敏感信息泄露。</p>'}</details>`;
 }
-function endScreen(){const e=endings[state.ending];return `<div class="ending ${state.ending==='C'?'death':''}"><span class="eyebrow">会话结束 · ${state.ending}</span><div class="ending-icon">${icon(state.ending==='C'?'phone':'chat',42)}</div><h2>${e.title}</h2><p>${e.sub}</p><p>${e.body}</p>${!party&&state.ending==='A'?'<div class="last-message">春哥账号 · 撤场小分队<br><b>你们是不是又建了一个群？</b></div>':''}<details><summary>查看这次的行动原因</summary><p>${esc(state.reason)}</p></details>${party?partyResult():''}${playtest?button('本地试玩记录','playtest','','wide'):''}${button('从检查点重试','saves','','wide')}${button('查看会话记录','review','','wide')}${button('重新开始','restartConfirm','','wide muted')}</div>`;}
+function endScreen(){const e=endings[state.ending];return `<div class="ending ${state.ending==='C'?'death':''}"><span class="eyebrow">会话结束 · ${state.ending}</span><div class="ending-icon">${icon(state.ending==='C'?'phone':'chat',42)}</div><h2>${e.title}</h2><p>${e.sub}</p><p>${e.body}</p>${!party&&state.ending==='A'?'<div class="last-message">春哥账号 · 撤场小分队<br><b>你们是不是又建了一个群？</b></div>':''}<details><summary>查看这次的行动原因</summary><p>${esc(state.reason)}</p></details>${party?partyResult():''}${research?button('本地试玩记录','playtest','','wide'):''}${button('从检查点重试','saves','','wide')}${button('查看会话记录','review','','wide')}${button('重新开始','restartConfirm','','wide muted')}</div>`;}
 let review=false;
 function isMessageSheet(){
  return !state.pending&&!state.ending&&modal?.kind==='message'
@@ -620,19 +626,37 @@ async function send(text=draft,type='text',value=null){
   return;
  }
  cancelReply();
- const activeRoom=room,oldQuote=quote,startIndex=state.messages.length;draft='';quote=null;if(party)panel=null;storeDraft(state,activeRoom,'');
- const next=dispatch(state,{id:crypto.randomUUID(),runId:state.runId,type:'SEND',room:activeRoom,text:text||'[表情]',messageType:type,value,quoteId:oldQuote?.id,quote:oldQuote?quoteText(oldQuote):undefined});
+ const activeRoom=room,oldQuote=quote,requestRun=state.runId,intentRevision=state.seq,intentEventCount=state.events.length;let startIndex=state.messages.length;draft='';quote=null;if(party)panel=null;storeDraft(state,activeRoom,'');
+ let intentCandidates=[],intentDialogue=[],interpreted=false;
+ if(ai&&shouldInterpretMessage(text,type)){
+  interpreted=true;
+  const context=buildIntentContext(state,activeRoom,text,oldQuote?{id:oldQuote.id,from:oldQuote.from,content:short(oldQuote)}:null);
+  intentDialogue=context.dialogue;
+  const ctrl=new AbortController();controller=ctrl;const timer=setTimeout(()=>ctrl.abort(),7000);
+  try{const result=await npcIntent(context,ctrl.signal);if(result.mode==='ai')intentCandidates=result.output?.candidates??[];}catch{}
+  finally{clearTimeout(timer);if(controller===ctrl)controller=null;}
+  // A reset or restored checkpoint invalidates the interpretation and the unsent draft.
+  if(state.runId!==requestRun)return;
+  if(state.seq!==intentRevision||state.events.length!==intentEventCount){intentCandidates=[];intentDialogue=[];startIndex=state.messages.length;}
+ }
+ const next=dispatch(state,{id:crypto.randomUUID(),runId:requestRun,type:'SEND',room:activeRoom,text:text||'[表情]',messageType:type,value,quoteId:oldQuote?.id,quote:oldQuote?quoteText(oldQuote):undefined,intentCandidates,intentDialogue,intentRevision,intentEventCount});
  if(oldQuote&&!party){const own=next.messages.slice(startIndex).find(m=>m.from==='me');if(own)own.quote=short(oldQuote);}
- const staged=stageNpcReply(next,{enabled:ai,type,room:activeRoom,text,startIndex});
+ const staged=stageNpcReply(next,{enabled:ai&&!interpreted,type,room:activeRoom,text,startIndex});
  render.bottom=true;commit(staged.state);
- if(!staged.context)return;
- const token=state.replyInFlight.token,ctrl=new AbortController();controller=ctrl;
- const timer=setTimeout(()=>ctrl.abort(),17000);
- let result;
- try{result=await npcReply(staged.context,ctrl.signal);}catch{result={mode:'fallback'};}
- finally{clearTimeout(timer);if(controller===ctrl)controller=null;}
+ if(!staged.context){
+  if(staged.state.messages.slice(startIndex).some(message=>message.from!=='me'&&message.from!=='system'))playtest?.markRule(interpreted?'INTENT_RULE':'DETERMINISTIC_RULE');
+  return;
+ }
+ const token=state.replyInFlight.token,operation=startReplyRequest(signal=>npcReply(staged.context,signal),replyTimeoutConfig());
+ controller=operation.controller;
+ const outcome=await operation.visible,result=outcome.result;
+ if(controller===operation.controller)controller=null;
  // A retry, new message or another resolution invalidates this reserved turn.
- if(state.replyInFlight?.token===token){render.bottom=view==='chat'&&room===activeRoom&&nearBottom(document.querySelector('#messages'));commit(settleNpcReply(state,token,result));}
+ if(state.replyInFlight?.token===token){
+  const settled=settleNpcReply(state,token,result),message=settled.messages.find(item=>item.id===token);
+  playtest?.markAi(result,outcome.elapsedMs,message?.ai?.resolution);
+  render.bottom=view==='chat'&&room===activeRoom&&nearBottom(document.querySelector('#messages'));commit(settled);
+ }else if(state.runId===requestRun)playtest?.markAi(result,outcome.elapsedMs,{status:'discarded',guardStatus:'STATE_CHANGED'});
 }
 
 function resizeDraft(input){
@@ -666,7 +690,7 @@ function updateRoomSearch(event){
 }
 app.addEventListener('input',updateRoomSearch);
 app.addEventListener('change',updateRoomSearch);
-app.addEventListener('change',e=>{if(e.target.id==='ai'){ai=e.target.checked;if(!ai)cancelReply();localStorage.setItem('alan-ai-enabled',String(ai));fetch('/api/status').then(r=>r.json()).then(x=>{const el=document.querySelector('#api-status');if(el)el.textContent=x.configured?'自然对话已开启。':'当前使用本地回复，仍可完整游玩。';}).catch(()=>toast('AI 接口不可用，继续本地模式。'));}});
+app.addEventListener('change',e=>{if(e.target.id==='ai'){ai=e.target.checked;if(!ai)cancelReply();localStorage.setItem('alan-ai-enabled',String(ai));npcApiStatus(undefined,{fresh:true}).then(x=>{apiStatus=ai&&x.configured?'api-configured':'local-fallback';playtest?.setMode(apiStatus);const el=document.querySelector('#api-status');if(el)el.textContent=apiStatus==='api-configured'?apiConnectedText:'当前使用本地回复，仍可完整游玩。';}).catch(()=>{apiStatus='local-fallback';playtest?.setMode(apiStatus);toast('AI 接口不可用，继续本地模式。');});}});
 let composing=false;app.addEventListener('compositionstart',()=>composing=true);app.addEventListener('compositionend',()=>composing=false);
 app.addEventListener('keydown',e=>{if(e.target.id==='draft'&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&!composing&&e.keyCode!==229){e.preventDefault();send();}if(e.key==='Escape'){closeModal();if(state.pending)sendEvent({type:'CANCEL'});else render();}});
 app.addEventListener('contextmenu',e=>{const bubble=e.target.closest('[data-mid]');if(bubble){e.preventDefault();modal={kind:'message',mid:bubble.dataset.mid};render();}});
@@ -706,6 +730,25 @@ app.addEventListener('click',async e=>{
  case 'hint':playtest?.mark('打开当前提示',{chapter:state.chapter});modal={kind:'hint'};break;
  case 'playtest':if(playtest)modal={kind:a};break;
  case 'exportPlaytest':if(playtest)exportPlaytest(playtest.report());break;
+ case 'saveNpcApiKey':{
+  if(!research)return;
+  const input=document.querySelector('#npc-api-key');
+  if(!setNpcApiKey(input?.value)){toast('请输入完整的 DeepSeek API Key。');return;}
+  try{const status=await npcApiStatus(undefined,{fresh:true});apiStatus=ai&&status.configured?'api-configured':'local-fallback';playtest?.setMode(apiStatus);toast(apiStatus==='api-configured'?'AI 接口已连接。':'接口暂不可用，继续使用本地回复。');}
+  catch{apiStatus='local-fallback';playtest?.setMode(apiStatus);toast('接口暂不可用，继续使用本地回复。');}
+  break;
+ }
+ case 'clearNpcApiKey':{
+  if(!research)return;
+  clearNpcApiKey();
+  try{const status=await npcApiStatus(undefined,{fresh:true});apiStatus=ai&&status.configured?'api-configured':'local-fallback';}
+  catch{apiStatus='local-fallback';}
+  playtest?.setMode(apiStatus);toast('已清除本次浏览器会话的 API Key。');break;
+ }
+ case 'enterPlaytest':{
+  if(!research||!hasNpcApiKey())return;
+  const next=new URL(location.href);next.searchParams.delete('research');next.searchParams.delete('access');location.assign(next);return;
+ }
  case 'settings':case 'saves':case 'about':case 'favorites':case 'files':case 'map':case 'lock':case 'search':case 'contactSearch':case 'restartConfirm':case 'debug':modal={kind:a};break;
  case 'members':modal={kind:a,room:b.dataset.room||room};break;
  case 'newgroup':modal={kind:'newgroup'};break;

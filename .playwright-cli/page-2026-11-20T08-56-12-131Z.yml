@@ -1,0 +1,72 @@
+- main [ref=e2]:
+  - group "游戏工具" [ref=e244]:
+    - generic [ref=e245]: 别发到群里
+    - button "会话设置" [disabled] [ref=e246] [cursor=pointer]
+  - region "微讯游戏" [ref=e251]:
+    - time [ref=e253]: 23:42
+    - generic [ref=e258]:
+      - generic [ref=e259]:
+        - button "返回聊天列表" [ref=e260] [cursor=pointer]
+        - heading "生日散场群 (7)" [level=1] [ref=e262]
+        - button "聊天信息" [ref=e263] [cursor=pointer]
+      - generic [ref=e265]:
+        - generic [ref=e266]: 今晚 23:42
+        - generic [ref=e267]: 周六 23:42 · 聚会刚散场
+        - generic [ref=e268]: 合照拍完了。有人下楼找车，有人回包间拿东西。
+        - generic [ref=e269]:
+          - button "查看小卫的资料" [ref=e270] [cursor=pointer]
+          - generic [ref=e272]:
+            - generic [ref=e273]: 小卫
+            - button "蛋糕在桌上。谁拿了我那根充电线？" [ref=e274] [cursor=pointer]
+        - generic [ref=e275]:
+          - button "查看春哥的资料" [ref=e276] [cursor=pointer]
+          - generic [ref=e278]:
+            - generic [ref=e279]: 春哥
+            - button "我拿的是黑的。有人跟老金一车吗？" [ref=e280] [cursor=pointer]
+        - generic [ref=e281]:
+          - button "查看正义的资料" [ref=e282] [cursor=pointer]
+          - generic [ref=e284]:
+            - generic [ref=e285]: 正义
+            - button "我先到楼下看一眼，刚才伞好像落下了。" [ref=e286] [cursor=pointer]
+        - generic [ref=e287]:
+          - button "查看席瑞的资料" [ref=e288] [cursor=pointer]
+          - generic [ref=e290]:
+            - generic [ref=e291]: 席瑞
+            - button "合照我明天发。刚才随手拍的东西先别删。" [ref=e292] [cursor=pointer]
+        - generic [ref=e293]:
+          - button "查看老金的资料" [ref=e294] [cursor=pointer]
+          - generic [ref=e296]:
+            - generic [ref=e297]: 老金
+            - button "开的是七座车，司机算一个，七个人正好。先别分头打车。" [ref=e298] [cursor=pointer]
+        - generic [ref=e299]:
+          - button "查看老潘的资料" [ref=e300] [cursor=pointer]
+          - generic [ref=e302]:
+            - generic [ref=e303]: 老潘
+            - button "旧商业楼出口图.svg 场馆平面图 聊天文件" [ref=e304] [cursor=pointer]:
+              - generic [ref=e306]:
+                - text: 旧商业楼出口图.svg
+                - generic [ref=e307]: 场馆平面图
+              - generic [ref=e311]: 聊天文件
+      - generic [ref=e312]:
+        - button "语音选项" [ref=e313] [cursor=pointer]
+        - textbox "消息输入" [ref=e315]
+        - button "表情" [ref=e316] [cursor=pointer]
+        - button "更多功能" [ref=e318] [cursor=pointer]
+    - dialog "会话选项" [ref=e322]:
+      - heading "旧商业楼出口图.svg" [level=2] [ref=e326]
+      - generic [ref=e327]: 场馆平面图来源：场馆订房资料
+      - img "商业楼出口示意图" [ref=e328]:
+        - generic [ref=e333]:
+          - generic [ref=e334]: 正门
+          - generic [ref=e335]: 西门
+          - generic [ref=e336]: 东门
+          - generic [ref=e337]: 包间 208
+          - generic [ref=e338]: 后场通道
+          - generic [ref=e339]: 侧楼梯
+          - generic [ref=e340]: 后院门
+      - generic [ref=e341]: 聚会包间 208 在二层，访客休息室另设。 东门经后场通道；后院门经侧楼梯。 西门经西侧电梯。正门在一层大厅。 原图只记录建筑关系。
+      - generic [ref=e342]:
+        - button "转发" [ref=e343] [cursor=pointer]
+        - button "转发截图" [ref=e344] [cursor=pointer]
+        - button "收藏" [ref=e345] [cursor=pointer]
+        - button "关闭" [ref=e346] [cursor=pointer]

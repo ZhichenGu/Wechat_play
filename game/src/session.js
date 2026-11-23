@@ -7,6 +7,7 @@ import {priorChats as oldChats} from './prior-chats.js';
 import {ids,cast,partyRooms,caseFiles,partyVoices,PARTY_VERSION} from './party-story.js';
 import {freshParty,dispatchParty,retryParty,partyObjective,getGroups,recoverParty} from './party-engine.js';
 import {stageParty,settleParty} from './party-dialogue.js';
+import {intentContext,shouldInterpret} from './party-ai.js';
 
 const key='biefadaoqunli.v2';
 const query=new URLSearchParams(location.search);
@@ -50,6 +51,8 @@ export const objective=party?partyObjective:legacyEngine.objective;
 export const activeGroupIds=party?getGroups:legacy.activeGroupIds;
 export const stageNpcReply=party?stageParty:legacyDialogue.stageNpcReply;
 export const settleNpcReply=party?settleParty:legacyDialogue.settleNpcReply;
+export const buildIntentContext=party?intentContext:()=>null;
+export const shouldInterpretMessage=party?shouldInterpret:()=>false;
 export function load(){return party?(newSave?.version===PARTY_VERSION?recoverParty(newSave):null):legacySave.load();}
 export function save(state){if(!party)return legacySave.save(state);try{localStorage.setItem(key,JSON.stringify(state));return true;}catch{return false;}}
 export function syncCatalog(state){

@@ -8,9 +8,12 @@
 header button{min-width:40px}.composer>button{min-width:32px;min-height:40px}
 .dialog .muted{color:#737973}.dialog small{color:#777d77}.dialog>small:last-child{display:block;margin-top:12px;text-align:center}
 .checkbox-field{justify-content:flex-start}.developer-options{margin:12px 0 18px;border-top:1px solid #e7e9e5}.developer-options summary{min-height:44px;line-height:28px;color:#657365}
+.host-api-settings{margin:18px 0;padding:16px 0 4px;border-top:1px solid var(--ui-line,#e7e9e5);border-bottom:1px solid var(--ui-line,#e7e9e5)}.host-api-settings h3{margin:0 0 8px;font-size:15px;font-weight:600}.host-api-settings .field{align-items:flex-start}.host-api-settings input[type=password]{width:100%;padding:10px;border:1px solid var(--ui-line,#ddd);border-radius:5px;background:var(--ui-bg,#fff);color:inherit}
 .review-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#f7f7f7;border-top:1px solid #dedede;font-size:13px;color:#717771}.review-footer button{min-height:40px;padding:8px 12px;color:#576b59}
 
-.typing-indicator{flex-shrink:0;color:#697669;font-size:12px;line-height:1.6;padding:7px 18px;background:#ededed}.typing-indicator span{display:inline-block;min-width:18px}
+.typing-indicator{flex-shrink:0;color:#697669;font-size:12px;line-height:1.6;padding:7px 18px;background:#ededed}.typing-indicator span{display:inline-block;min-width:18px;animation:typing-pulse 1.05s ease-in-out infinite}
+@keyframes typing-pulse{0%,100%{opacity:.28;transform:translateY(0)}50%{opacity:1;transform:translateY(-1px)}}
+@media (prefers-reduced-motion:reduce){.typing-indicator span{animation:none}}
 
 /* Conversation rows and message actions share the muted colors of the game. */
 .chat-list{background:#f9faf8}

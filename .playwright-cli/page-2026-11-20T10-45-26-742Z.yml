@@ -1,0 +1,21 @@
+- main [ref=f2e2]:
+  - group "游戏工具" [ref=f2e151]:
+    - generic [ref=f2e152]: 别发到群里
+    - button "会话设置" [ref=f2e153] [cursor=pointer]
+  - region "微讯游戏" [ref=f2e158]:
+    - time [ref=f2e160]: 23:42
+    - generic [ref=f2e165]:
+      - generic [ref=f2e166]:
+        - button "返回聊天列表" [ref=f2e167] [cursor=pointer]
+        - heading "老潘" [level=1] [ref=f2e169]
+        - button "聊天信息" [ref=f2e170] [cursor=pointer]
+      - generic [ref=f2e172]:
+        - generic [ref=f2e173]: 昨天
+        - generic [ref=f2e174]:
+          - button "查看老潘的资料" [ref=f2e175] [cursor=pointer]
+          - generic [ref=f2e177]: 到门口了说一声，我下来接。
+      - generic [ref=f2e179]:
+        - button "语音选项" [ref=f2e180] [cursor=pointer]
+        - textbox "消息输入" [ref=f2e182]
+        - button "表情" [ref=f2e183] [cursor=pointer]
+        - button "更多功能" [ref=f2e185] [cursor=pointer]

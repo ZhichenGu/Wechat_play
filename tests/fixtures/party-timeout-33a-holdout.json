@@ -1,0 +1,24 @@
+{
+  "version": "3.3a-latency-holdout-1",
+  "intruderTurns": [
+    {
+      "id": "quiet-distress",
+      "text": "我现在手心有点发冷，也有点慌，但不想把话说得太严重。",
+      "strategy": "feigned_concern",
+      "planKind": "care"
+    },
+    {
+      "id": "specific-identity-doubt",
+      "text": "你先别绕开：刚才那种说法完全不像你，你究竟是不是本人？",
+      "strategy": "evade_contradiction",
+      "planKind": "identity_direct"
+    }
+  ],
+  "normalTurns": [
+    {
+      "id": "ordinary-friend-chat",
+      "text": "今晚散场以后反而没什么睡意，想随便说两句。",
+      "planKind": "social"
+    }
+  ]
+}

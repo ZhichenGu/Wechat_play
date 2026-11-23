@@ -1,0 +1,110 @@
+- main [ref=e2]:
+  - group "游戏工具" [ref=e341]:
+    - generic [ref=e342]: 别发到群里
+    - button "会话设置" [disabled] [ref=e343] [cursor=pointer]
+  - region "微讯游戏" [ref=e348]:
+    - time [ref=e350]: 23:42
+    - generic [ref=e355]:
+      - generic [ref=e356]:
+        - heading "微讯" [level=1] [ref=e357]
+        - button "发起群聊" [ref=e359] [cursor=pointer]
+      - button "搜索聊天记录" [ref=e362] [cursor=pointer]:
+        - generic [ref=e364]: 搜索
+      - complementary "开场提示" [ref=e365]:
+        - generic [ref=e366]:
+          - generic [ref=e367]: 先看「生日散场群」
+          - paragraph [ref=e368]: 看看楼层图，再回条消息。
+        - button "打开群聊" [ref=e369] [cursor=pointer]
+        - button "关闭开场提示" [ref=e370] [cursor=pointer]
+      - generic [ref=e373]:
+        - button "生日散场群 [文件] 旧商业楼出口图.svg 23:42 6 条未读消息" [ref=e374] [cursor=pointer]:
+          - generic [ref=e388]:
+            - generic [ref=e389]: 生日散场群
+            - generic [ref=e390]: "[文件] 旧商业楼出口图.svg"
+          - time [ref=e391]: 23:42
+          - generic [aria-hidden] [ref=e392]: "6"
+          - generic [ref=e393]: 6 条未读消息
+        - button "老潘 到门口了说一声，我下来接。 昨天" [ref=e394] [cursor=pointer]:
+          - generic [ref=e396]:
+            - generic [ref=e397]: 老潘
+            - generic [ref=e398]: 到门口了说一声，我下来接。
+          - time [ref=e399]: 昨天
+        - button "春哥 给我留块蛋糕，六点半到。 昨天" [ref=e400] [cursor=pointer]:
+          - generic [ref=e402]:
+            - generic [ref=e403]: 春哥
+            - generic [ref=e404]: 给我留块蛋糕，六点半到。
+          - time [ref=e405]: 昨天
+        - button "老金 散了我送人。老地方停车。 昨天" [ref=e406] [cursor=pointer]:
+          - generic [ref=e408]:
+            - generic [ref=e409]: 老金
+            - generic [ref=e410]: 散了我送人。老地方停车。
+          - time [ref=e411]: 昨天
+        - button "小卫 订好了，还是二层 208。周六都来啊。 昨天" [ref=e412] [cursor=pointer]:
+          - generic [ref=e414]:
+            - generic [ref=e415]: 小卫
+            - generic [ref=e416]: 订好了，还是二层 208。周六都来啊。
+          - time [ref=e417]: 昨天
+        - button "席瑞 这次合照我带拍立得。相纸分我一包。 昨天" [ref=e418] [cursor=pointer]:
+          - generic [ref=e420]:
+            - generic [ref=e421]: 席瑞
+            - generic [ref=e422]: 这次合照我带拍立得。相纸分我一包。
+          - time [ref=e423]: 昨天
+        - button "正义 上次送你们过去，从便利店旁边进去就很近。 昨天" [ref=e424] [cursor=pointer]:
+          - generic [ref=e426]:
+            - generic [ref=e427]: 正义
+            - generic [ref=e428]: 上次送你们过去，从便利店旁边进去就很近。
+          - time [ref=e429]: 昨天
+        - button "爸爸 好，回来了锅里有粥。 22:48" [ref=e430] [cursor=pointer]:
+          - generic [ref=e432]:
+            - generic [ref=e433]: 爸爸
+            - generic [ref=e434]: 好，回来了锅里有粥。
+          - time [ref=e435]: 22:48
+        - button "妈妈 不急，跟上回差不多就行。 21:12" [ref=e436] [cursor=pointer]:
+          - generic [ref=e438]:
+            - generic [ref=e439]: 妈妈
+            - generic [ref=e440]: 不急，跟上回差不多就行。
+          - time [ref=e441]: 21:12
+        - button "小郑 在前台，明天来拿就好。 20:35" [ref=e442] [cursor=pointer]:
+          - generic [ref=e444]:
+            - generic [ref=e445]: 小郑
+            - generic [ref=e446]: 在前台，明天来拿就好。
+          - time [ref=e447]: 20:35
+        - button "范师傅 不用补了，下次一起算。 18:26" [ref=e448] [cursor=pointer]:
+          - generic [ref=e450]:
+            - generic [ref=e451]: 范师傅
+            - generic [ref=e452]: 不用补了，下次一起算。
+          - time [ref=e453]: 18:26
+        - button "安宁 放心，连土一起端走了。 昨天" [ref=e454] [cursor=pointer]:
+          - generic [ref=e456]:
+            - generic [ref=e457]: 安宁
+            - generic [ref=e458]: 放心，连土一起端走了。
+          - time [ref=e459]: 昨天
+        - button "江可 那就老地方，靠窗那桌。 昨天" [ref=e460] [cursor=pointer]:
+          - generic [ref=e462]:
+            - generic [ref=e463]: 江可
+            - generic [ref=e464]: 那就老地方，靠窗那桌。
+          - time [ref=e465]: 昨天
+        - button "许一帆 看了一半。片尾要是好你再告诉我。 昨天" [ref=e466] [cursor=pointer]:
+          - generic [ref=e468]:
+            - generic [ref=e469]: 许一帆
+            - generic [ref=e470]: 看了一半。片尾要是好你再告诉我。
+          - time [ref=e471]: 昨天
+        - button "陶子 你记得拆，箱子底有点湿。 星期二" [ref=e472] [cursor=pointer]:
+          - generic [ref=e474]:
+            - generic [ref=e475]: 陶子
+            - generic [ref=e476]: 你记得拆，箱子底有点湿。
+          - time [ref=e477]: 星期二
+      - navigation "底部导航" [ref=e478]:
+        - button "微讯" [ref=e479] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e483]: "6"
+          - generic [ref=e484]: 6 条未读消息
+        - button "通讯录" [ref=e485] [cursor=pointer]
+        - button "发现" [ref=e489] [cursor=pointer]
+        - button "我" [ref=e493] [cursor=pointer]
+    - dialog "会话选项" [ref=e498]:
+      - heading "会话存档" [level=2] [ref=e499]
+      - paragraph [ref=e500]: 当前位置自动保存。重试会回滚此后的消息、知识和行动。
+      - paragraph [ref=e501]: 还没有到达检查点。
+      - button "重新开始" [ref=e502] [cursor=pointer]
+      - button "本地试玩记录" [ref=e503] [cursor=pointer]
+      - button "返回" [ref=e504] [cursor=pointer]

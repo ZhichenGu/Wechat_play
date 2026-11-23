@@ -1,0 +1,31 @@
+- main [ref=f3e2]:
+  - region "微讯游戏" [ref=f3e1383]:
+    - time [ref=f3e1385]: 23:42
+    - generic [ref=f3e1390]:
+      - generic [ref=f3e1391]:
+        - button "返回聊天列表" [ref=f3e1392] [cursor=pointer]
+        - heading "春哥" [level=1] [ref=f3e1394]
+        - button "聊天信息" [ref=f3e1395] [cursor=pointer]
+      - generic [ref=f3e1397]:
+        - generic [ref=f3e1398]: 昨天
+        - generic [ref=f3e1399]:
+          - button "查看春哥的资料" [ref=f3e1400] [cursor=pointer]
+          - generic [ref=f3e1402]: 给我留块蛋糕，六点半到。
+        - generic [ref=f3e1404]: 今晚 23:42
+        - button "散场以后反而睡不着，随便聊两句吧。" [ref=f3e1413] [cursor=pointer]
+        - generic [ref=f3e1414]:
+          - button "查看春哥的资料" [ref=f3e1415] [cursor=pointer]
+          - button "散场后那股劲儿还没下去，确实容易睡不着。我这儿也不催你，想聊就接着聊。" [ref=f3e1418] [cursor=pointer]
+      - generic [ref=f3e1419]:
+        - button "语音选项" [ref=f3e1420] [cursor=pointer]
+        - textbox "消息输入" [ref=f3e1422]
+        - button "表情" [ref=f3e1423] [cursor=pointer]
+        - button "更多功能" [ref=f3e1425] [cursor=pointer]
+      - generic [ref=f3e1427]:
+        - button "可选回复" [ref=f3e1428] [cursor=pointer]
+        - button "文件" [ref=f3e1433] [cursor=pointer]
+        - button "位置" [ref=f3e1438] [cursor=pointer]
+        - button "语音通话" [ref=f3e1444] [cursor=pointer]
+        - button "收藏" [ref=f3e1449] [cursor=pointer]
+        - button "发起群聊" [ref=f3e1454] [cursor=pointer]
+        - button "门锁" [ref=f3e1460] [cursor=pointer]

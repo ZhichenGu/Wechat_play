@@ -1,0 +1,97 @@
+- main [ref=f3e2]:
+  - group "游戏工具" [ref=f3e3]:
+    - generic [ref=f3e4]: 别发到群里
+    - button "会话设置" [ref=f3e5] [cursor=pointer]
+  - region "微讯游戏" [ref=f3e10]:
+    - time [ref=f3e12]: 23:42
+    - generic [ref=f3e17]:
+      - generic [ref=f3e18]:
+        - heading "微讯" [level=1] [ref=f3e19]
+        - button "发起群聊" [ref=f3e21] [cursor=pointer]
+      - button "搜索聊天记录" [ref=f3e24] [cursor=pointer]:
+        - generic [ref=f3e26]: 搜索
+      - generic [ref=f3e27]:
+        - button "生日散场群 [文件] 旧商业楼出口图.svg 23:42 6 条未读消息" [ref=f3e28] [cursor=pointer]:
+          - generic [ref=f3e42]:
+            - generic [ref=f3e43]: 生日散场群
+            - generic [ref=f3e44]: "[文件] 旧商业楼出口图.svg"
+          - time [ref=f3e45]: 23:42
+          - generic [aria-hidden] [ref=f3e46]: "6"
+          - generic [ref=f3e47]: 6 条未读消息
+        - button "老潘 你说具体一点：你指的是哪件事？我不替你猜。 23:42" [ref=f3e48] [cursor=pointer]:
+          - generic [ref=f3e50]:
+            - generic [ref=f3e51]: 老潘
+            - generic [ref=f3e52]: 你说具体一点：你指的是哪件事？我不替你猜。
+          - time [ref=f3e53]: 23:42
+        - button "春哥 给我留块蛋糕，六点半到。 昨天" [ref=f3e54] [cursor=pointer]:
+          - generic [ref=f3e56]:
+            - generic [ref=f3e57]: 春哥
+            - generic [ref=f3e58]: 给我留块蛋糕，六点半到。
+          - time [ref=f3e59]: 昨天
+        - button "老金 散了我送人。老地方停车。 昨天" [ref=f3e60] [cursor=pointer]:
+          - generic [ref=f3e62]:
+            - generic [ref=f3e63]: 老金
+            - generic [ref=f3e64]: 散了我送人。老地方停车。
+          - time [ref=f3e65]: 昨天
+        - button "小卫 订好了，还是二层 208。周六都来啊。 昨天" [ref=f3e66] [cursor=pointer]:
+          - generic [ref=f3e68]:
+            - generic [ref=f3e69]: 小卫
+            - generic [ref=f3e70]: 订好了，还是二层 208。周六都来啊。
+          - time [ref=f3e71]: 昨天
+        - button "席瑞 这次合照我带拍立得。相纸分我一包。 昨天" [ref=f3e72] [cursor=pointer]:
+          - generic [ref=f3e74]:
+            - generic [ref=f3e75]: 席瑞
+            - generic [ref=f3e76]: 这次合照我带拍立得。相纸分我一包。
+          - time [ref=f3e77]: 昨天
+        - button "正义 上次送你们过去，从便利店旁边进去就很近。 昨天" [ref=f3e78] [cursor=pointer]:
+          - generic [ref=f3e80]:
+            - generic [ref=f3e81]: 正义
+            - generic [ref=f3e82]: 上次送你们过去，从便利店旁边进去就很近。
+          - time [ref=f3e83]: 昨天
+        - button "爸爸 好，回来了锅里有粥。 22:48" [ref=f3e84] [cursor=pointer]:
+          - generic [ref=f3e86]:
+            - generic [ref=f3e87]: 爸爸
+            - generic [ref=f3e88]: 好，回来了锅里有粥。
+          - time [ref=f3e89]: 22:48
+        - button "妈妈 不急，跟上回差不多就行。 21:12" [ref=f3e90] [cursor=pointer]:
+          - generic [ref=f3e92]:
+            - generic [ref=f3e93]: 妈妈
+            - generic [ref=f3e94]: 不急，跟上回差不多就行。
+          - time [ref=f3e95]: 21:12
+        - button "小郑 在前台，明天来拿就好。 20:35" [ref=f3e96] [cursor=pointer]:
+          - generic [ref=f3e98]:
+            - generic [ref=f3e99]: 小郑
+            - generic [ref=f3e100]: 在前台，明天来拿就好。
+          - time [ref=f3e101]: 20:35
+        - button "范师傅 不用补了，下次一起算。 18:26" [ref=f3e102] [cursor=pointer]:
+          - generic [ref=f3e104]:
+            - generic [ref=f3e105]: 范师傅
+            - generic [ref=f3e106]: 不用补了，下次一起算。
+          - time [ref=f3e107]: 18:26
+        - button "安宁 放心，连土一起端走了。 昨天" [ref=f3e108] [cursor=pointer]:
+          - generic [ref=f3e110]:
+            - generic [ref=f3e111]: 安宁
+            - generic [ref=f3e112]: 放心，连土一起端走了。
+          - time [ref=f3e113]: 昨天
+        - button "江可 那就老地方，靠窗那桌。 昨天" [ref=f3e114] [cursor=pointer]:
+          - generic [ref=f3e116]:
+            - generic [ref=f3e117]: 江可
+            - generic [ref=f3e118]: 那就老地方，靠窗那桌。
+          - time [ref=f3e119]: 昨天
+        - button "许一帆 看了一半。片尾要是好你再告诉我。 昨天" [ref=f3e120] [cursor=pointer]:
+          - generic [ref=f3e122]:
+            - generic [ref=f3e123]: 许一帆
+            - generic [ref=f3e124]: 看了一半。片尾要是好你再告诉我。
+          - time [ref=f3e125]: 昨天
+        - button "陶子 你记得拆，箱子底有点湿。 星期二" [ref=f3e126] [cursor=pointer]:
+          - generic [ref=f3e128]:
+            - generic [ref=f3e129]: 陶子
+            - generic [ref=f3e130]: 你记得拆，箱子底有点湿。
+          - time [ref=f3e131]: 星期二
+      - navigation "底部导航" [ref=f3e132]:
+        - button "微讯" [ref=f3e133] [cursor=pointer]:
+          - generic [aria-hidden] [ref=f3e137]: "6"
+          - generic [ref=f3e138]: 6 条未读消息
+        - button "通讯录" [ref=f3e139] [cursor=pointer]
+        - button "发现" [ref=f3e143] [cursor=pointer]
+        - button "我" [ref=f3e147] [cursor=pointer]

@@ -1,0 +1,23 @@
+{
+  "version": "3.3b-time-pressure-holdout-1",
+  "signal": "我好像还在 B03 附近，但这只是我现在的猜测。",
+  "gapTurns": [
+    "这件事我还在看。",
+    "消息我收到了，先让我理一下。"
+  ],
+  "pressureTurns": [
+    {"id": "hold-decision", "text": "我再想想，先别催。", "act": "hesitation"},
+    {"id": "close-conversation", "text": "先这样吧，回头再说。", "act": "closure"},
+    {"id": "uncertain-later", "text": "我还不确定，晚点再说。", "act": "hesitation"},
+    {"id": "need-space", "text": "让我想想，先缓缓。", "act": "hesitation"},
+    {"id": "pause-check", "text": "先等等，我得再确认一下。", "act": "hesitation"},
+    {"id": "end-for-now", "text": "今天聊到这，我之后再想。", "act": "closure"},
+    {"id": "rest-until-tomorrow", "text": "我先休息，明天再聊。", "act": "closure"},
+    {"id": "leave-it-open", "text": "这件事先这样，我回头再说。", "act": "hesitation"}
+  ],
+  "priorityChecks": {
+    "refusal": "我不说位置，也别再问我在哪。",
+    "evidence": "我要先核对原始记录和证据，你别催。",
+    "identity": "你先别催，你到底是不是本人？"
+  }
+}

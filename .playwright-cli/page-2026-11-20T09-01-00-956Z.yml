@@ -1,0 +1,54 @@
+- main [ref=e2]:
+  - group "游戏工具" [ref=e527]:
+    - generic [ref=e528]: 别发到群里
+    - button "会话设置" [ref=e529] [cursor=pointer]
+  - region "微讯游戏" [ref=e534]:
+    - time [ref=e536]: 23:42
+    - generic [ref=e541]:
+      - generic [ref=e542]:
+        - button "返回聊天列表" [ref=e543] [cursor=pointer]
+        - heading "生日散场群 (7)" [level=1] [ref=e545]
+        - button "聊天信息" [ref=e546] [cursor=pointer]
+      - generic [ref=e548]:
+        - generic [ref=e549]: 今晚 23:42
+        - generic [ref=e550]: 周六 23:42 · 聚会刚散场
+        - generic [ref=e551]: 合照拍完了。有人下楼找车，有人回包间拿东西。
+        - generic [ref=e552]:
+          - button "查看小卫的资料" [ref=e553] [cursor=pointer]
+          - generic [ref=e555]:
+            - generic [ref=e556]: 小卫
+            - button "蛋糕在桌上。谁拿了我那根充电线？" [ref=e557] [cursor=pointer]
+        - generic [ref=e558]:
+          - button "查看春哥的资料" [ref=e559] [cursor=pointer]
+          - generic [ref=e561]:
+            - generic [ref=e562]: 春哥
+            - button "我拿的是黑的。有人跟老金一车吗？" [ref=e563] [cursor=pointer]
+        - generic [ref=e564]:
+          - button "查看正义的资料" [ref=e565] [cursor=pointer]
+          - generic [ref=e567]:
+            - generic [ref=e568]: 正义
+            - button "我先到楼下看一眼，刚才伞好像落下了。" [ref=e569] [cursor=pointer]
+        - generic [ref=e570]:
+          - button "查看席瑞的资料" [ref=e571] [cursor=pointer]
+          - generic [ref=e573]:
+            - generic [ref=e574]: 席瑞
+            - button "合照我明天发。刚才随手拍的东西先别删。" [ref=e575] [cursor=pointer]
+        - generic [ref=e576]:
+          - button "查看老金的资料" [ref=e577] [cursor=pointer]
+          - generic [ref=e579]:
+            - generic [ref=e580]: 老金
+            - button "开的是七座车，司机算一个，七个人正好。先别分头打车。" [ref=e581] [cursor=pointer]
+        - generic [ref=e582]:
+          - button "查看老潘的资料" [ref=e583] [cursor=pointer]
+          - generic [ref=e585]:
+            - generic [ref=e586]: 老潘
+            - button "旧商业楼出口图.svg 场馆平面图 聊天文件" [ref=e587] [cursor=pointer]:
+              - generic [ref=e589]:
+                - text: 旧商业楼出口图.svg
+                - generic [ref=e590]: 场馆平面图
+              - generic [ref=e594]: 聊天文件
+      - generic [ref=e595]:
+        - button "语音选项" [ref=e596] [cursor=pointer]
+        - textbox "消息输入" [ref=e598]
+        - button "表情" [ref=e599] [cursor=pointer]
+        - button "更多功能" [ref=e601] [cursor=pointer]

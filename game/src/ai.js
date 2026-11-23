@@ -1,4 +1,25 @@
 import {rooms,activeGroupIds} from './story.js';
+const STATUS_TTL_MS=5*60*1000;
+const SESSION_KEY='biefadaoqunli.npc-api-key.session';
+let cachedStatus=null,cachedStatusAt=0;
+
+function sessionKey(){try{return globalThis.sessionStorage?.getItem(SESSION_KEY)?.trim()||'';}catch{return '';}}
+const providerHeaders=()=>{const key=sessionKey();return key?{'X-NPC-API-Key':key}:{}};
+export function hasNpcApiKey(){return !!sessionKey();}
+export function setNpcApiKey(value){
+ const key=String(value??'').trim();
+ if(!/^[\x21-\x7e]{16,256}$/.test(key))return false;
+ try{globalThis.sessionStorage?.setItem(SESSION_KEY,key);invalidateNpcStatus();return true;}catch{return false;}
+}
+export function clearNpcApiKey(){try{globalThis.sessionStorage?.removeItem(SESSION_KEY);}catch{}invalidateNpcStatus();}
+export async function npcApiStatus(signal,{fresh=false}={}){
+ if(fresh)invalidateNpcStatus();
+ if(cachedStatus?.configured&&Date.now()-cachedStatusAt<STATUS_TTL_MS)return cachedStatus;
+ const status=await fetch('/api/status',{signal,headers:providerHeaders()}).then(r=>r.json());
+ if(status.configured){cachedStatus=status;cachedStatusAt=Date.now();}
+ return status;
+}
+function invalidateNpcStatus(){cachedStatus=null;cachedStatusAt=0;}
 // Optional paraphrase selection, deliberately bounded: model output never mutates world state.
 export function contextFor(s,room){
  const who=rooms[room]?.members.find(member=>member!=='me')??'lan';
@@ -10,13 +31,19 @@ export async function optionalReply(payload,signal){
 }
 
 export async function alanReply(context,signal){
- try{const status=await fetch('/api/status',{signal}).then(r=>r.json());if(!status.configured)return {mode:'local',reason:'未配置密钥'};
- const response=await fetch('/api/alan/dialogue',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':status.csrf},body:JSON.stringify({context}),signal});if(!response.ok)return {mode:'fallback',reason:'接口暂不可用'};return await response.json();
+ try{const status=await npcApiStatus(signal);if(!status.configured)return {mode:'local',reason:'未配置密钥'};
+ const response=await fetch('/api/alan/dialogue',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':status.csrf,...providerHeaders()},body:JSON.stringify({context}),signal});if(!response.ok){if(response.status===403)invalidateNpcStatus();return {mode:'fallback',reason:'接口暂不可用'};}return await response.json();
  }catch{return {mode:'fallback',reason:'连接失败或已取消'};}
 }
 
 export async function npcReply(context,signal){
- try{const status=await fetch('/api/status',{signal}).then(r=>r.json());if(!status.configured)return {mode:'local',reason:'未配置密钥'};
- const response=await fetch('/api/npc/dialogue',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':status.csrf},body:JSON.stringify({context}),signal});if(!response.ok)return {mode:'fallback',reason:'接口暂不可用'};return await response.json();
+ try{const status=await npcApiStatus(signal);if(!status.configured)return {mode:'local',reason:'未配置密钥'};
+ const response=await fetch('/api/npc/dialogue',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':status.csrf,...providerHeaders()},body:JSON.stringify({context}),signal});if(!response.ok){if(response.status===403)invalidateNpcStatus();return {mode:'fallback',reason:'接口暂不可用'};}return await response.json();
+ }catch{return {mode:'fallback',reason:'连接失败或已取消'};}
+}
+
+export async function npcIntent(context,signal){
+ try{const status=await npcApiStatus(signal);if(!status.configured)return {mode:'local',reason:'未配置密钥'};
+ const response=await fetch('/api/npc/intent',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':status.csrf,...providerHeaders()},body:JSON.stringify({context}),signal});if(!response.ok){if(response.status===403)invalidateNpcStatus();return {mode:'fallback',reason:'接口暂不可用'};}return await response.json();
  }catch{return {mode:'fallback',reason:'连接失败或已取消'};}
 }

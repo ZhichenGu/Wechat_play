@@ -1,0 +1,43 @@
+{
+  "format": 2,
+  "build": "PT-03",
+  "aiBuild": "3.3B",
+  "runId": "649cb0fb-4236-4c5b-a926-1aad4cf6a685",
+  "seed": 1980371984,
+  "storyRevision": 2,
+  "startedAt": "2026-11-20T10:55:37.495Z",
+  "source": "新开局",
+  "phases": [
+    {
+      "at": "2026-11-20T10:55:37.495Z",
+      "chapter": 0,
+      "name": "正常散场"
+    }
+  ],
+  "timeline": [
+    {
+      "at": "2026-11-20T10:55:37.520Z",
+      "type": "对话模式",
+      "mode": "api-configured"
+    },
+    {
+      "at": "2026-11-20T10:55:46.498Z",
+      "type": "进入微讯"
+    }
+  ],
+  "stats": {
+    "hints": 0,
+    "suggestions": 0,
+    "helpRequests": 0,
+    "identityAttempts": 0,
+    "leaks": 0,
+    "recoveries": 0,
+    "timePressure": 0,
+    "pressureFollowups": 0,
+    "aiSuccess": 0,
+    "auditFallback": 0,
+    "softTimeout": 0,
+    "localFallback": 0
+  },
+  "dialogueMode": "api-configured"
+}

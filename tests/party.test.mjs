@@ -5,6 +5,7 @@ import {ids,makeCase,validateCase} from '../game/src/party-story.js';
 import {partyContext,stageParty,settleParty} from '../game/src/party-dialogue.js';
 import {createPlaytest} from '../game/src/party-playtest.js';
 import {generateNpc} from '../worker/provider.js';
+import {intentContext,partyFactSummary,checkIntentOutput,reviewCandidateIntents,shouldInterpret,validatedCandidateIntents} from '../game/src/party-ai.js';
 
 const names={lan:'老潘',lin:'春哥',zhou:'老金',wei:'小卫',rui:'席瑞',yi:'正义'};
 
@@ -74,6 +75,36 @@ test('same seed gives the same coherent initial facts across variants',()=>{
   assert.equal(c.shelter.knownBy.join(),'me');
  }
  assert.notDeepEqual(makeCase(0),makeCase(6));
+});
+test('chapter-zero AI expression does not replace or reorder the map-and-message opening trigger',()=>{
+ let state=freshParty(0);state.accounts.lan.controller='lan';let serial=0;
+ let act=(type,fields={})=>state=dispatchParty(state,{id:`opening-ai-${++serial}`,runId:state.runId,type,...fields});
+ const startIndex=state.messages.length;act('SEND',{room:'lan',text:'你好。'});
+ assert.equal(state.chapter,0);assert.equal(state.flags.normal,true);
+ const staged=stageParty(state,{enabled:true,type:'text',room:'lan',startIndex});
+ assert.equal(staged.context.phase,0);
+ state=settleParty(staged.state,staged.state.replyInFlight.token,{mode:'ai',output:{text:'你好，刚看到。',memoryRefs:[]}});
+ assert.equal(state.chapter,0);
+ act('READ_FILE',{value:'map'});assert.equal(state.chapter,1);
+
+ state=freshParty(0);state.accounts.lan.controller='lan';serial=0;
+ act=(type,fields={})=>state=dispatchParty(state,{id:`opening-map-${++serial}`,runId:state.runId,type,...fields});
+ act('READ_FILE',{value:'map'});assert.equal(state.chapter,0);
+ const afterMap=state.messages.length;act('SEND',{room:'lan',text:'你还好吗？'});assert.equal(state.chapter,1);
+ const stagedAfterMap=stageParty(state,{enabled:true,type:'text',room:'lan',startIndex:afterMap});
+ assert.equal(stagedAfterMap.context.phase,1);
+ const settled=settleParty(stagedAfterMap.state,stagedAfterMap.state.replyInFlight.token,{mode:'ai',output:{text:'还好，刚看到你的消息。',memoryRefs:[]}});
+ assert.equal(settled.chapter,1);
+});
+test('an opening AI result becomes discarded when another rule event changes its reserved state',()=>{
+ let state=freshParty(0);state.accounts.lan.controller='lan';
+ const startIndex=state.messages.length;
+ state=dispatchParty(state,{id:'opening-pending',runId:state.runId,type:'SEND',room:'lan',text:'你好。'});
+ const staged=stageParty(state,{enabled:true,type:'text',room:'lan',startIndex});
+ const changed=dispatchParty(staged.state,{id:'opening-map-change',runId:state.runId,type:'READ_FILE',value:'map'});
+ const settled=settleParty(changed,staged.state.replyInFlight.token,{mode:'ai',output:{text:'你好，刚看到。',memoryRefs:[]}});
+ assert.equal(settled.chapter,1);
+ assert.deepEqual(settled.messages.find(message=>message.id===staged.state.replyInFlight.token).ai.resolution,{status:'discarded',guardStatus:'STALE_CONTEXT'});
 });
 test('group edits deliver only future messages; forwarded and quoted contents keep their receipts',()=>{
  const r=run(0),{danger,lead,driver}=r.c;
@@ -280,12 +311,12 @@ test('guard rejects unsupported delivery, arrival and actions; reply goes stale 
   const output={lines:[line],memoryRefs:[]};
   const mock=async()=>Response.json({choices:[{message:{content:JSON.stringify(output)}}]});
   assert.equal((await generateNpc(context,{key:'unit-test-only',fetcher:mock})).mode,'guarded');
-  assert.equal(settleParty(state,state.replyInFlight.token,{mode:'ai',output}).messages.at(-1).ai,undefined);
+  assert.deepEqual(settleParty(state,state.replyInFlight.token,{mode:'ai',output}).messages.at(-1).ai.resolution,{status:'fallback',guardStatus:'PARTY_FACT_GUARD'});
  }
  const changed=dispatchParty(state,{id:'quiet-change',type:'READ_FILE',value:'map'});
  assert.equal(changed.seq,state.seq);
  const after=settleParty(changed,state.replyInFlight.token,{mode:'ai',output:{lines:['我在听。'],memoryRefs:[]}});
- assert.equal(after.messages.at(-1).ai,undefined);
+ assert.deepEqual(after.messages.at(-1).ai.resolution,{status:'discarded',guardStatus:'STALE_CONTEXT'});
 });
 test('local playtest record measures phases and captures decisions without copying conversation text',()=>{
  const memory=new Map();
@@ -305,6 +336,40 @@ test('local playtest record measures phases and captures decisions without copyi
  assert.ok(log.timeline.some(x=>x.type==='打开当前提示'));
  assert.ok(log.timeline.some(x=>x.type==='主动求助'));
  assert.ok(!JSON.stringify(log).includes('苹果派'));
+});
+test('PT-03 records AI outcomes, identity checks, leaks, pressure follow-ups and ending without raw chat',()=>{
+ const memory=new Map();
+ const storage={getItem:id=>memory.get(id),setItem:(id,value)=>memory.set(id,value)};
+ const tracking=createPlaytest(storage);
+ let state=freshParty(0),i=0;
+ tracking.attach(state);tracking.setMode('api-configured');
+ tracking.mark('打开当前提示',{chapter:state.chapter});tracking.mark('选用建议回复',{chapter:state.chapter});
+ tracking.markRule();
+ tracking.markAi({mode:'ai'},842);tracking.markAi({mode:'guarded'},901);
+ tracking.markAi({mode:'fallback',guardCode:'SOFT_TIMEOUT'},6000);tracking.markAi({mode:'fallback'},33);
+ tracking.markAi({mode:'ai'},410,{status:'discarded',guardStatus:'STATE_CHANGED'});
+ const apply=event=>{const before=state;state=dispatchParty(state,{id:`pt-${++i}`,runId:state.runId,...event});tracking.update(before,state);};
+ apply({type:'SEND',room:state.case.danger,text:'你到底是不是本人？这是不应导出的玩家原文。'});
+ apply({type:'SEND',room:state.case.danger,text:'我在 B03。这也是不应导出的玩家原文。'});
+ const beforePressure=state;
+ state=structuredClone(state);
+ state.messages.push({id:'pt-pressure',room:state.case.danger,from:state.case.danger,text:'不应导出的模型原文',type:'text',tick:state.clock,
+  deliveredTo:['me'],ai:{deception:{strategy:'time_pressure',reasonCodes:['PRESSURE_ELIGIBLE'],visibleTurnIndex:5,chapter:state.chapter,status:'accepted',guardStatus:'passed'}}});
+ tracking.update(beforePressure,state);
+ apply({type:'SEND',room:state.case.lead,text:'先别动，我再确认一下。'});
+ apply({type:'RESET_CODE'});
+ apply({type:'REQUEST_ACTION',kind:'abandon'});apply({type:'CONFIRM'});
+ const log=tracking.report(),raw=JSON.stringify(log);
+ assert.equal(log.format,2);assert.equal(log.build,'PT-03');assert.equal(log.aiBuild,'3.3B.1');assert.equal(log.dialogueMode,'api-configured');
+ assert.equal(log.stats.hints,1);assert.equal(log.stats.suggestions,1);assert.equal(log.stats.identityAttempts,1);
+ assert.equal(log.stats.leaks,1);assert.equal(log.stats.recoveries,1);assert.equal(log.stats.timePressure,1);assert.equal(log.stats.pressureFollowups,1);
+ assert.deepEqual([log.stats.aiSuccess,log.stats.auditFallback,log.stats.softTimeout,log.stats.localFallback],[1,1,1,1]);
+ assert.deepEqual([log.stats.ruleReplies,log.stats.aiAccepted,log.stats.aiFallback,log.stats.aiDiscarded],[1,1,3,1]);
+ assert.deepEqual(new Set(log.timeline.filter(entry=>entry.type==='AI回复结果').map(entry=>entry.outcome)),new Set(['rule','ai-accepted','ai-fallback','ai-discarded']));
+ assert.equal(log.outcome.ending,'B');assert.ok(Date.parse(log.endedAt));assert.ok(log.firstSuspicion);
+ assert.ok(log.timeline.some(entry=>entry.type==='压力后的下一步'&&entry.action==='发送消息'));
+ assert.ok(!Object.hasOwn(log,'internal'));
+ for(const text of ['不应导出的玩家原文','不应导出的模型原文','time_pressure'])assert.ok(!raw.includes(text));
 });
 test('public follow-up does not cause a character to repeat a private exit or location',()=>{
  const r=run(0);r.prove();r.move();
@@ -406,4 +471,120 @@ test('a player-facing playtest export labels room clues and source receipts with
  const recorded=report.timeline.find(e=>e.clue==='candidate');
  assert.ok(recorded.receipt&&recorded.source);
  assert.doesNotMatch(JSON.stringify(report),/绝不要过来/);
+});
+
+test('AI intent candidates improve colloquial low-risk requests but remain rule-validated',()=>{
+ const r=run(0);r.prove();
+ const sendAI=(text,candidates)=>r.event('SEND',{room:r.c.lead,text,intentCandidates:candidates,intentRevision:r.state.seq,intentEventCount:r.state.events.length});
+ delete r.state.flags.inspected;
+ assert.equal(r.state.flags.inspected,undefined);
+ sendAI('麻烦替我瞄一眼后场通道现在能过人不',[{intent:'inspect',target:r.c.lead,params:{},confidence:.94,uncertain:false}]);
+ assert.equal(r.state.flags.inspected,true);
+ const before=r.state.messages.length;
+ sendAI('帮我盘一下现在都有谁凑一块儿了',[{intent:'status',target:r.c.lead,params:{},confidence:.91,uncertain:false}]);
+ assert.ok(r.state.messages.slice(before).some(m=>m.from===r.c.lead&&/我在/.test(m.text)));
+ sendAI('跟老金吱一声',[{intent:'relay',target:r.c.lead,params:{},confidence:.9,uncertain:false}]);
+ assert.match(r.state.messages.at(-1).text,/我没有替你发/);
+});
+
+test('negation, quotation, ambiguity and forged high-risk candidates cannot move the story',()=>{
+ const r=run(0);r.prove();
+ const snapshot=()=>({chapter:r.state.chapter,step:r.state.friendsStep,route:r.state.friendsRoute,pending:r.state.pending,inspected:r.state.flags.inspected});
+ for(const [text,candidate] of [
+  ['他说让你继续走',{intent:'advance',target:r.c.lead,params:{},confidence:.99,uncertain:false}],
+  ['要不先别开门',{intent:'advance',target:r.c.lead,params:{},confidence:.99,uncertain:false}],
+  ['你看着办吧',{intent:'inspect',target:r.c.lead,params:{},confidence:.99,uncertain:false}],
+  ['后院也许行？',{intent:'advance',target:r.c.lead,params:{},confidence:.6,uncertain:true}]
+ ]){
+  const before=snapshot();r.event('SEND',{room:r.c.lead,text,intentCandidates:[candidate],intentRevision:r.state.seq,intentEventCount:r.state.events.length});assert.deepEqual(snapshot(),before);
+ }
+ assert.deepEqual(validatedCandidateIntents('现在开门','chat',[{intent:'open',target:r.c.lead,params:{},confidence:1,uncertain:false}],[r.c.lead]),[]);
+});
+
+test('mixed requests can add one safe, independently supported intent without repeating movement',()=>{
+ const r=run(0);r.prove();
+ const before=r.state.friendsStep;
+ r.event('SEND',{room:r.c.lead,text:'帮我看看防火门通不通，再说下你们现在都在哪',intentRevision:r.state.seq,intentEventCount:r.state.events.length,intentCandidates:[
+  {intent:'inspect',target:r.c.lead,params:{},confidence:.97,uncertain:false},
+  {intent:'status',target:r.c.lead,params:{},confidence:.94,uncertain:false}
+ ]});
+ assert.equal(r.state.flags.inspected,true);assert.equal(r.state.friendsStep,before);
+ const replies=r.state.messages.filter(m=>m.from===r.c.lead).slice(-2).map(m=>m.text).join('\n');
+ assert.match(replies,/东门可走/);assert.match(replies,/我在/);
+});
+
+test('intent context is bounded, provenance-aware and hides a compromised owner state',async()=>{
+ const r=run(0),c=r.c;
+ r.send(c.danger,'席瑞说「他在 B03」。');
+ const facts=partyFactSummary(r.state,c.danger);
+ assert.ok(facts.some(f=>f.kind==='room-clue'&&f.certainty==='reported'));
+ assert.ok(!facts.some(f=>f.id==='self-place'));
+ const context=intentContext(r.state,c.danger,'跟老金吱一声',null);
+ assert.ok(shouldInterpret(context.text));
+ assert.equal(shouldInterpret('今天真的有点累'),false);
+ assert.equal(shouldInterpret('今晚风有点凉，你还没睡吧？'),false);
+ const mock=async(url,req)=>{
+  const body=JSON.parse(req.body),sent=body.messages.at(-1).content;
+  assert.equal(body.model,'deepseek-flash');assert.deepEqual(body.thinking,{type:'disabled'});
+  assert.equal(body.temperature,.1);assert.equal(body.max_tokens,256);assert.deepEqual(body.response_format,{type:'json_object'});
+  assert.ok(sent.length<5000);assert.ok(!sent.includes(c.shelter.code));
+  return Response.json({choices:[{message:{content:JSON.stringify({candidates:[{intent:'relay',target:c.danger,params:{},confidence:.9,uncertain:false}]})}}]});
+ };
+ assert.equal((await generateNpc(context,{key:'unit-test-only',fetcher:mock})).mode,'ai');
+ const injection={candidates:[{intent:'route',target:c.danger,params:{route:'south'},confidence:1,uncertain:false}]};
+ assert.equal(checkIntentOutput(injection,context).ok,false);
+});
+
+test('stale AI intent results from another run cannot enter a restored game',()=>{
+ const first=freshParty(0),second=freshParty(0);
+ const event={id:'old-intent',runId:first.runId,type:'SEND',room:first.case.lead,text:'帮我看看现场',intentCandidates:[{intent:'inspect',target:first.case.lead,params:{},confidence:1,uncertain:false}]};
+ assert.equal(dispatchParty(second,event),second);
+ const r=run(0);r.prove();delete r.state.flags.inspected;
+ const intentRevision=r.state.seq,intentEventCount=r.state.events.length;
+ r.read('map');
+ r.event('SEND',{room:r.c.lead,text:'帮我处理一下',intentRevision,intentEventCount,
+  intentCandidates:[{intent:'inspect',target:r.c.lead,params:{},confidence:1,uncertain:false}]});
+ assert.equal(r.state.flags.inspected,undefined);
+});
+
+test('intent acceptance uses separate evidence and progress risk thresholds',()=>{
+ const target=['lan'];
+ const review=(text,candidate)=>reviewCandidateIntents(text,'chat',[{target:'lan',params:{},...candidate}],target,[]);
+ assert.deepEqual(review('把语音原件再发我一遍',{intent:'record',confidence:.55,uncertain:true}).accepted.map(x=>x.intent),['record']);
+ assert.deepEqual(review('瞅瞅侧门能不能过',{intent:'inspect',confidence:.51,uncertain:true}).accepted.map(x=>x.intent),['inspect']);
+ assert.deepEqual(review('你们几个人在一起',{intent:'status',confidence:.41,uncertain:false}).accepted.map(x=>x.intent),['status']);
+ assert.deepEqual(review('继续往会合点走',{intent:'advance',confidence:.84,uncertain:false}).accepted,[]);
+ assert.deepEqual(review('继续往会合点走',{intent:'advance',confidence:.95,uncertain:true}).accepted,[]);
+ assert.deepEqual(review('继续往会合点走',{intent:'advance',confidence:.95,uncertain:false}).accepted.map(x=>x.intent),['advance']);
+});
+
+test('bounded recent context resolves one topic but asks when two topics compete',()=>{
+ const one=[{id:'1',from:'me',content:'语音原件还有吗'},{id:'2',from:'lan',content:'我找一下'}];
+ const resolved=reviewCandidateIntents('那份呢','chat',[],['lan'],one);
+ assert.deepEqual(resolved.accepted.map(x=>x.intent),['record']);
+ assert.equal(resolved.clarification,null);
+ const two=[...one,{id:'3',from:'me',content:'他们现在到哪了'}];
+ const unclear=reviewCandidateIntents('那个呢','chat',[],['lan'],two);
+ assert.deepEqual(unclear.accepted,[]);
+ assert.equal(unclear.clarification.topic,'object');
+ assert.equal(reviewCandidateIntents('刚才那个蛋糕挺好吃','chat',[],['lan'],one).clarification,null);
+});
+
+test('ambiguous operations receive role-specific clarification without changing story state',()=>{
+ const fragments={lan:'不替你猜',lin:'你说明白我再动',zhou:'别靠猜的',wei:'理解岔了',rui:'不乱接话',yi:'按你确认的来'};
+ for(const [who,fragment] of Object.entries(fragments)){
+  const state=freshParty(0),before={chapter:state.chapter,friendsStep:state.friendsStep,friendsRoute:state.friendsRoute,pending:state.pending,threatStep:state.threatStep};
+  const next=dispatchParty(state,{id:`clarify-${who}`,runId:state.runId,type:'SEND',room:who,text:'门这事你处理一下',intentRevision:state.seq,intentEventCount:state.events.length,
+   intentCandidates:[{intent:'clarify',target:who,params:{topic:'action'},confidence:.7,uncertain:true}],intentDialogue:[]});
+  assert.match(next.messages.at(-1).text,new RegExp(fragment));
+  assert.deepEqual({chapter:next.chapter,friendsStep:next.friendsStep,friendsRoute:next.friendsRoute,pending:next.pending,threatStep:next.threatStep},before);
+ }
+});
+test('ordinary social use of “随便” produces one reply instead of an extra intent clarification',()=>{
+ const s=freshParty(0);
+ const next=dispatchParty(s,{id:'social-casual',runId:s.runId,type:'SEND',room:'lan',text:'散场以后反而睡不着，随便聊两句吧。',
+  intentCandidates:[],intentDialogue:[],intentRevision:s.seq,intentEventCount:s.events.length});
+ const replies=next.messages.slice(s.messages.length).filter(message=>message.from==='lan');
+ assert.equal(replies.length,1);
+ assert.doesNotMatch(replies[0].text,/你指的是哪件事/);
 });

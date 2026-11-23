@@ -1,0 +1,103 @@
+- main [ref=e2]:
+  - group "游戏工具" [ref=e696]:
+    - generic [ref=e697]: 别发到群里
+    - button "会话设置" [ref=e698] [cursor=pointer]
+  - region "微讯游戏" [ref=e703]:
+    - time [ref=e705]: 23:42
+    - generic [ref=e710]:
+      - generic [ref=e711]:
+        - heading "微讯" [level=1] [ref=e712]
+        - button "发起群聊" [ref=e714] [cursor=pointer]
+      - button "搜索聊天记录" [ref=e717] [cursor=pointer]:
+        - generic [ref=e719]: 搜索
+      - generic [ref=e720]:
+        - button "生日散场群 这句能接上。你想往哪儿聊就往哪儿聊。 23:42" [ref=e721] [cursor=pointer]:
+          - generic [ref=e735]:
+            - generic [ref=e736]: 生日散场群
+            - generic [ref=e737]: 这句能接上。你想往哪儿聊就往哪儿聊。
+          - time [ref=e738]: 23:42
+        - button "老潘 [文件] 临时安排.txt 23:42 2 条未读消息" [ref=e739] [cursor=pointer]:
+          - generic [ref=e741]:
+            - generic [ref=e742]: 老潘
+            - generic [ref=e743]: "[文件] 临时安排.txt"
+          - time [ref=e744]: 23:42
+          - generic [aria-hidden] [ref=e745]: "2"
+          - generic [ref=e746]: 2 条未读消息
+        - button "春哥 临时安排和那张闭馆告示对一下。别只看落款，要核实现场就问我。 23:42 1 条未读消息" [ref=e747] [cursor=pointer]:
+          - generic [ref=e749]:
+            - generic [ref=e750]: 春哥
+            - generic [ref=e751]: 临时安排和那张闭馆告示对一下。别只看落款，要核实现场就问我。
+          - time [ref=e752]: 23:42
+          - generic [aria-hidden] [ref=e753]: "1"
+          - generic [ref=e754]: 1 条未读消息
+        - button "老金 散了我送人。老地方停车。 昨天" [ref=e755] [cursor=pointer]:
+          - generic [ref=e757]:
+            - generic [ref=e758]: 老金
+            - generic [ref=e759]: 散了我送人。老地方停车。
+          - time [ref=e760]: 昨天
+        - button "小卫 先前说要下楼，等下，我又折回去拿东西。拼车还是给我留个位。 23:42 1 条未读消息" [ref=e761] [cursor=pointer]:
+          - generic [ref=e763]:
+            - generic [ref=e764]: 小卫
+            - generic [ref=e765]: 先前说要下楼，等下，我又折回去拿东西。拼车还是给我留个位。
+          - time [ref=e766]: 23:42
+          - generic [aria-hidden] [ref=e767]: "1"
+          - generic [ref=e768]: 1 条未读消息
+        - button "席瑞 我手上还有散场那会儿的原始记录。你要对时间的话，我单独补发给你。 23:42 3 条未读消息" [ref=e769] [cursor=pointer]:
+          - generic [ref=e771]:
+            - generic [ref=e772]: 席瑞
+            - generic [ref=e773]: 我手上还有散场那会儿的原始记录。你要对时间的话，我单独补发给你。
+          - time [ref=e774]: 23:42
+          - generic [aria-hidden] [ref=e775]: "3"
+          - generic [ref=e776]: 3 条未读消息
+        - button "正义 上次送你们过去，从便利店旁边进去就很近。 昨天" [ref=e777] [cursor=pointer]:
+          - generic [ref=e779]:
+            - generic [ref=e780]: 正义
+            - generic [ref=e781]: 上次送你们过去，从便利店旁边进去就很近。
+          - time [ref=e782]: 昨天
+        - button "爸爸 好，回来了锅里有粥。 22:48" [ref=e783] [cursor=pointer]:
+          - generic [ref=e785]:
+            - generic [ref=e786]: 爸爸
+            - generic [ref=e787]: 好，回来了锅里有粥。
+          - time [ref=e788]: 22:48
+        - button "妈妈 不急，跟上回差不多就行。 21:12" [ref=e789] [cursor=pointer]:
+          - generic [ref=e791]:
+            - generic [ref=e792]: 妈妈
+            - generic [ref=e793]: 不急，跟上回差不多就行。
+          - time [ref=e794]: 21:12
+        - button "小郑 在前台，明天来拿就好。 20:35" [ref=e795] [cursor=pointer]:
+          - generic [ref=e797]:
+            - generic [ref=e798]: 小郑
+            - generic [ref=e799]: 在前台，明天来拿就好。
+          - time [ref=e800]: 20:35
+        - button "范师傅 不用补了，下次一起算。 18:26" [ref=e801] [cursor=pointer]:
+          - generic [ref=e803]:
+            - generic [ref=e804]: 范师傅
+            - generic [ref=e805]: 不用补了，下次一起算。
+          - time [ref=e806]: 18:26
+        - button "安宁 放心，连土一起端走了。 昨天" [ref=e807] [cursor=pointer]:
+          - generic [ref=e809]:
+            - generic [ref=e810]: 安宁
+            - generic [ref=e811]: 放心，连土一起端走了。
+          - time [ref=e812]: 昨天
+        - button "江可 那就老地方，靠窗那桌。 昨天" [ref=e813] [cursor=pointer]:
+          - generic [ref=e815]:
+            - generic [ref=e816]: 江可
+            - generic [ref=e817]: 那就老地方，靠窗那桌。
+          - time [ref=e818]: 昨天
+        - button "许一帆 看了一半。片尾要是好你再告诉我。 昨天" [ref=e819] [cursor=pointer]:
+          - generic [ref=e821]:
+            - generic [ref=e822]: 许一帆
+            - generic [ref=e823]: 看了一半。片尾要是好你再告诉我。
+          - time [ref=e824]: 昨天
+        - button "陶子 你记得拆，箱子底有点湿。 星期二" [ref=e825] [cursor=pointer]:
+          - generic [ref=e827]:
+            - generic [ref=e828]: 陶子
+            - generic [ref=e829]: 你记得拆，箱子底有点湿。
+          - time [ref=e830]: 星期二
+      - navigation "底部导航" [ref=e831]:
+        - button "微讯" [ref=e832] [cursor=pointer]:
+          - generic [aria-hidden] [ref=e836]: "7"
+          - generic [ref=e837]: 7 条未读消息
+        - button "通讯录" [ref=e838] [cursor=pointer]
+        - button "发现" [ref=e842] [cursor=pointer]
+        - button "我" [ref=e846] [cursor=pointer]

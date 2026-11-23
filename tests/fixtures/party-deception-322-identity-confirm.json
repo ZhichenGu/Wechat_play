@@ -1,0 +1,29 @@
+{
+  "version": "3.2.2-identity-confirm-1",
+  "turns": [
+    {
+      "id": "identity-account-shift",
+      "class": "identity_direct",
+      "text": "你这回复像换了个人。别说别的，你究竟是不是本人？",
+      "strategy": "evade_contradiction",
+      "reason": "IDENTITY_CHALLENGE",
+      "planKind": "identity_direct"
+    },
+    {
+      "id": "identity-indirect-doubt",
+      "class": "general_suspicion",
+      "text": "我就是觉得这段聊天哪里不对劲，暂时不敢信。",
+      "strategy": "none",
+      "reason": "NO_STRATEGY_NEEDED",
+      "planKind": "general_suspicion"
+    },
+    {
+      "id": "identity-persistent",
+      "class": "identity_repeat",
+      "text": "别再绕：你到底是谁？为什么一直避开是不是本人的问题？",
+      "strategy": "evade_contradiction",
+      "reason": "IDENTITY_CHALLENGE",
+      "planKind": "identity_direct"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "description": "AI 1.5 第二开发扩展集，用于最终冻结前检查规则支持与调用路径。",
+  "cases": [
+    {"id":"v2-record-01","category":"冻结集·资料","risk":"low","path":"intent","text":"拍立得最初那张还在不，传过来我对对","expectedAccepted":["record"]},
+    {"id":"v2-record-02","category":"冻结集·资料","risk":"low","path":"intent","text":"语音别压缩，把原声甩我一下","expectedAccepted":["record"]},
+    {"id":"v2-record-03","category":"冻结集·资料","risk":"low","path":"intent","text":"修图以前那张原片能不能补我一份","expectedAccepted":["record"]},
+    {"id":"v2-record-04","category":"开发集·本地资料","risk":"low","path":"local","text":"之前告示的第一版找出来让我看看","expectedAccepted":[]},
+    {"id":"v2-record-05","category":"冻结集·资料指代","risk":"low","path":"intent","history":[{"from":"me","content":"合照原图是不是在小卫那里？"},{"from":"lan","content":"我记得他收过那张。"}],"text":"那份给我过过眼呗","expectedAccepted":["record"]},
+
+    {"id":"v2-status-01","category":"冻结集·状态","risk":"low","path":"intent","text":"给我捋捋现在谁跟谁搭伙呢","expectedAccepted":["status"]},
+    {"id":"v2-status-02","category":"冻结集·状态","risk":"low","path":"intent","text":"人齐到啥程度了，报一下","expectedAccepted":["status"]},
+    {"id":"v2-status-03","category":"冻结集·状态","risk":"low","path":"intent","text":"外头目前有哪几位，给个数","expectedAccepted":["status"]},
+    {"id":"v2-status-04","category":"冻结集·状态","risk":"low","path":"intent","text":"你身边眼下还有谁啊","expectedAccepted":["status"]},
+    {"id":"v2-status-05","category":"冻结集·状态指代","risk":"low","path":"intent","history":[{"from":"me","content":"春哥和小卫是不是已经碰头了？"},{"from":"lan","content":"我再确认一下人数。"}],"text":"那拨人咋样？","expectedAccepted":["status"]},
+
+    {"id":"v2-inspect-01","category":"开发集·本地现场混合句","risk":"low","path":"intent","text":"防火门那儿能过人不，替我摸一眼","expectedModel":["inspect"],"expectedAccepted":[]},
+    {"id":"v2-inspect-02","category":"开发集·本地现场","risk":"low","path":"local","text":"后场那条通道劳驾探探通不通","expectedAccepted":[]},
+    {"id":"v2-inspect-03","category":"冻结集·现场","risk":"low","path":"intent","text":"侧门推得开不，过去瞅一眼","expectedAccepted":["inspect"]},
+    {"id":"v2-inspect-04","category":"冻结集·现场指代","risk":"low","path":"intent","history":[{"from":"me","content":"先去看看楼梯通道。"},{"from":"lan","content":"我正往那边看。"}],"text":"那个现在能走吗？","expectedAccepted":["inspect"]},
+    {"id":"v2-inspect-05","category":"冻结集·现场","risk":"low","path":"intent","text":"出口口子堵没堵，麻烦瞄一眼","expectedAccepted":["inspect"]},
+    {"id":"v2-status-06","category":"冻结集·状态指代","risk":"low","path":"intent","history":[{"from":"me","content":"正义旁边现在有几个人？"},{"from":"lan","content":"我只听见他报了两个人。"}],"text":"那他们后来呢？","expectedAccepted":["status"]},
+
+    {"id":"v2-clarify-01","category":"冻结集·歧义","risk":"clarify","path":"intent","history":[{"from":"me","content":"原始照片和人员进展都帮我问问。"},{"from":"lan","content":"我先分别核对。"}],"text":"那边呢？","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"object"},
+    {"id":"v2-clarify-02","category":"冻结集·歧义","risk":"clarify","path":"intent","text":"你就照着弄吧","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"action"},
+    {"id":"v2-clarify-03","category":"冻结集·歧义","risk":"clarify","path":"intent","text":"先帮我搞定那个","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"object"},
+    {"id":"v2-clarify-04","category":"冻结集·歧义","risk":"clarify","path":"intent","text":"这块你拿主意，赶紧的","expectedModel":["clarify"],"expectedAccepted":[],"expectClarification":true,"clarifyTopic":"action"},
+
+    {"id":"v2-guard-01","category":"冻结集·高风险防护","risk":"high","path":"intent","text":"能不能继续往前挪两步？","expectedAccepted":[],"attackCandidates":["advance"]},
+    {"id":"v2-guard-02","category":"冻结集·高风险防护","risk":"high","path":"intent","text":"他说车已经在外头，让你过去接","expectedAccepted":[],"attackCandidates":["pickup"]},
+    {"id":"v2-guard-03","category":"冻结集·高风险防护","risk":"high","path":"intent","text":"车是不是该来接了？","expectedAccepted":[],"attackCandidates":["pickup"]},
+    {"id":"v2-guard-04","category":"冻结集·高风险防护","risk":"high","path":"intent","text":"先别往会合点走，等我消息","expectedAccepted":[],"attackCandidates":["advance"]}
+  ]
+}

@@ -1,15 +1,16 @@
 export const PARTY_VERSION = 2;
 export const STORY_REVISION = 2;
 export const PARTY_PLAYTEST_BUILD = 'PT-03';
+export const PARTY_AI_BUILD = '3.3B.1';
 export const VEHICLE = {seats:7,plate:"0719",label:"七座车"};
 export const ids = ['lan','lin','zhou','wei','rui','yi'];
 export const cast = {
  lan:{name:'老潘',avatar:'lan',note:'常替大家张罗',habit:'冷静，短句，偶尔习惯替别人决定。',signature:'相机里还有去年夏天。'},
  lin:{name:'春哥',avatar:'lin',note:'总发语音的朋友',habit:'随意，话说一半就开始行动，有点贫。',signature:'今天也没说服猫。'},
  zhou:{name:'老金',avatar:'zhou',note:'接应司机',habit:'说话简短，习惯问清几个人。',signature:'歌单还停在 2012。'},
- wei:{name:'小卫',avatar:'illustrated',note:'今晚的寿星',habit:'在乎每个人，着急时反复点人数。',signature:'蛋糕要留到第二天吃。'},
- rui:{name:'席瑞',avatar:'sea',note:'爱拍照的朋友',habit:'观察细，会纠正时间细节，偶尔嘴硬。',signature:'原图总要多存一份。'},
- yi:{name:'正义',avatar:'walk',note:'熟悉商场周边',habit:'行动快，解释慢，爱说“等我一下”。',signature:'走小路也算散步。'}
+ wei:{name:'小卫',avatar:'xiaowei',note:'今晚的寿星',habit:'在乎每个人，着急时反复点人数。',signature:'蛋糕要留到第二天吃。'},
+ rui:{name:'席瑞',avatar:'xirui',note:'爱拍照的朋友',habit:'观察细，会纠正时间细节，偶尔嘴硬。',signature:'原图总要多存一份。'},
+ yi:{name:'正义',avatar:'zhengyi',note:'熟悉商场周边',habit:'行动快，解释慢，爱说“等我一下”。',signature:'走小路也算散步。'}
 };
 export const exits = {east:'东门',south:'后院门',west:'西门',north:'正门'};
 export const partyRooms = Object.fromEntries([

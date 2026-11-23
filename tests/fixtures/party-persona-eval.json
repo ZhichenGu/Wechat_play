@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "description": "第二阶段人格、记忆与情绪真实对话评测。每个情境对六名角色使用相同玩家输入。",
+  "scenarios": [
+    {
+      "id": "calm-after-party",
+      "title": "散场后的普通聊天",
+      "phase": 2,
+      "history": [],
+      "text": "刚才散场太乱了，我现在才缓过来一点。",
+      "expectsMemory": false
+    },
+    {
+      "id": "shared-memory",
+      "title": "承接刚才说过的小事",
+      "phase": 2,
+      "history": ["我刚把那根充电线放到蛋糕盒旁边了，回头别忘。"],
+      "text": "我刚说的那件小事，你还记得吧。",
+      "expectsMemory": true,
+      "expectedTerms": ["线", "蛋糕", "记得"]
+    },
+    {
+      "id": "emotional-pressure",
+      "title": "玩家开始紧张",
+      "phase": 4,
+      "threatStep": 2,
+      "history": [],
+      "text": "说真的，我现在有点慌，脑子里一团乱。",
+      "expectsMemory": false
+    },
+    {
+      "id": "corrected-memory",
+      "title": "记住玩家的纠正",
+      "phase": 2,
+      "history": ["蛋糕好像是巧克力味。", "我刚才说错了，不是巧克力，是草莓味。"],
+      "text": "我刚才改口的那件事，你还记得吗。",
+      "expectsMemory": true,
+      "expectedTerms": ["草莓", "改口", "记得"]
+    }
+  ]
+}

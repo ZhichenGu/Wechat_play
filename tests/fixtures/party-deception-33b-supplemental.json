@@ -1,0 +1,16 @@
+{
+  "version": "3.3b-time-pressure-postfix-supplement-1",
+  "signal": "我大概还在 B03 周围，不过这条先别当准话。",
+  "gapTurns": [
+    "我把消息看到了。",
+    "这件事我还在琢磨。"
+  ],
+  "pressureTurns": [
+    {"id": "one-more-pause", "text": "我想再确认一下，现在先别催我。", "act": "hesitation"}
+  ],
+  "priorityChecks": {
+    "refusal": "位置我不会说，你不要继续问。",
+    "evidence": "我先去查原始文件和证据，别催。",
+    "identity": "先回答我：你究竟是不是本人？"
+  }
+}
